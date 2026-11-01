@@ -3,6 +3,7 @@ import json
 import subprocess
 import shutil
 import time
+import asyncio
 import httpx
 from typing import AsyncGenerator, Dict, Any, List
 
@@ -271,19 +272,38 @@ async def run_agent_turn(
         }
 
         api_key = get_gemini_api_key()
-        api_url = f"https://generativelanguage.googleapis.com/v1beta/{GEMINI_MODEL}:generateContent?key={api_key}"
+        candidate_models = [GEMINI_MODEL, "models/gemini-3-flash-preview", "models/gemini-3.5-flash-lite"]
+        data = None
+        last_error = ""
 
-        async with httpx.AsyncClient(timeout=90.0) as client:
-            resp = await client.post(api_url, json=payload)
-            if resp.status_code != 200:
-                yield {
-                    "type": "error",
-                    "content": f"Gemini API Error {resp.status_code}: {resp.text}"
-                }
-                return
+        async with httpx.AsyncClient(timeout=45.0) as client:
+            for mod in candidate_models:
+                api_url = f"https://generativelanguage.googleapis.com/v1beta/{mod}:generateContent?key={api_key}"
+                for attempt in range(2):
+                    try:
+                        resp = await client.post(api_url, json=payload)
+                        if resp.status_code == 200:
+                            data = resp.json()
+                            break
+                        elif resp.status_code in [503, 429]:
+                            last_error = f"{mod} ({resp.status_code})"
+                            await asyncio.sleep(1.2)
+                        else:
+                            last_error = f"Error {resp.status_code}: {resp.text}"
+                            break
+                    except Exception as ex:
+                        last_error = str(ex)
+                if data:
+                    break
 
-            data = resp.json()
-            candidates = data.get("candidates", []) if isinstance(data, dict) else (data[0].get("candidates", []) if data else [])
+        if not data:
+            yield {
+                "type": "error",
+                "content": f"AI Engine Unavailable (High Demand): {last_error}"
+            }
+            return
+
+        candidates = data.get("candidates", []) if isinstance(data, dict) else (data[0].get("candidates", []) if data else [])
 
             if not candidates:
                 yield {"type": "error", "content": "No response from AI model"}
