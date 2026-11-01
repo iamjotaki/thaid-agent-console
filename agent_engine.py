@@ -6,9 +6,16 @@ import time
 import httpx
 from typing import AsyncGenerator, Dict, Any, List
 
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "YOUR_GEMINI_API_KEY_HERE")
+def get_gemini_api_key():
+    k = os.environ.get("GEMINI_API_KEY", "")
+    if not k and os.path.exists(".env"):
+        with open(".env", "r") as f:
+            for line in f:
+                if line.startswith("GEMINI_API_KEY="):
+                    k = line.strip().split("=", 1)[1].strip("'\"")
+    return k
+
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "models/gemini-3.5-flash")
-API_URL = f"https://generativelanguage.googleapis.com/v1beta/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
 
 # Tool Definitions for Gemini Function Calling
 TOOLS_DEFINITION = [
@@ -263,8 +270,11 @@ async def run_agent_turn(
             }
         }
 
+        api_key = get_gemini_api_key()
+        api_url = f"https://generativelanguage.googleapis.com/v1beta/{GEMINI_MODEL}:generateContent?key={api_key}"
+
         async with httpx.AsyncClient(timeout=90.0) as client:
-            resp = await client.post(API_URL, json=payload)
+            resp = await client.post(api_url, json=payload)
             if resp.status_code != 200:
                 yield {
                     "type": "error",
