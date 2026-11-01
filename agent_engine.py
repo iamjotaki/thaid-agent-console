@@ -8,7 +8,7 @@ from typing import AsyncGenerator, Dict, Any, List
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "YOUR_GEMINI_API_KEY_HERE")
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "models/gemini-3.5-flash")
-API_URL = f"https://generativelanguage.googleapis.com/v1beta/{GEMINI_MODEL}:streamGenerateContent?key={GEMINI_API_KEY}"
+API_URL = f"https://generativelanguage.googleapis.com/v1beta/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
 
 # Tool Definitions for Gemini Function Calling
 TOOLS_DEFINITION = [
@@ -273,11 +273,7 @@ async def run_agent_turn(
                 return
 
             data = resp.json()
-            # If streamed chunks, parse JSON array or lines
-            if isinstance(data, list):
-                candidates = data[-1].get("candidates", [])
-            else:
-                candidates = data.get("candidates", [])
+            candidates = data.get("candidates", []) if isinstance(data, dict) else (data[0].get("candidates", []) if data else [])
 
             if not candidates:
                 yield {"type": "error", "content": "No response from AI model"}
