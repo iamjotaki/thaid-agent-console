@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ThaiD Antigravity Agent · Remote DevOps Web Console</title>
+    <title>ThaiD Antigravity Agent · Workspace & Remote DevOps Web Console</title>
     <link rel="icon" href="https://thaid.online/favicon.ico">
 
     <!-- Fonts -->
@@ -47,7 +47,7 @@
         .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
         @keyframes blink { 0% { opacity: 0.2; } 20% { opacity: 1; } 100% { opacity: 0.2; } }
         /* Custom scrollbars */
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(150, 150, 150, 0.25); border-radius: 9999px; }
         ::-webkit-scrollbar-thumb:hover { background: rgba(150, 150, 150, 0.45); }
@@ -56,10 +56,10 @@
 <body class="bg-[#f8fafc] dark:bg-[#0f1117] text-stone-900 dark:text-stone-100 h-full flex flex-col antialiased selection:bg-blue-500 selection:text-white">
 
     <!-- 1. THAID FLOATING TOP NAVBAR -->
-    <header class="sticky top-0 z-40 bg-white/80 dark:bg-stone-900/80 backdrop-blur-xl border-b border-black/[0.06] dark:border-white/[0.08] px-3 sm:px-6 py-2.5">
+    <header class="sticky top-0 z-40 bg-white/80 dark:bg-stone-900/80 backdrop-blur-xl border-b border-black/[0.06] dark:border-white/[0.08] px-3 sm:px-6 py-2">
         <div class="max-w-7xl mx-auto flex items-center justify-between gap-3">
             
-            <!-- Zone 1: Left Brand -->
+            <!-- Left: Brand & Status -->
             <div class="flex items-center gap-3">
                 <a href="https://thaid.online" class="flex items-center gap-2 group">
                     <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-[#171717] to-[#2b313b] text-white flex items-center justify-center font-bold text-sm shadow-sm group-hover:scale-105 transition-transform">
@@ -78,22 +78,65 @@
                 </div>
             </div>
 
-            <!-- Zone 2: SaaS Dropdown & Super Admin Profile -->
+            <!-- Center: Project Switcher & Key Pool Badge -->
             <div class="flex items-center gap-2">
-                
+                <!-- Multi-Key Pool Status Indicator -->
+                <div class="hidden md:flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/40 border border-blue-200/60 dark:border-blue-800/60 text-blue-700 dark:text-blue-300 text-xs font-semibold" title="API Keys หมุนเวียนอัตโนมัติจาก ThaiD Vault ไม่มีปัญหาโควต้าเต็ม">
+                    <i class="fa-solid fa-key text-[10px] text-blue-500"></i>
+                    <span id="key-pool-indicator">{{ key_status.active_keys }} Gemini Keys Pool</span>
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+                </div>
+
+                <!-- Project Selector Dropdown -->
+                <div class="relative" id="projectSelectorWrap">
+                    <button type="button" onclick="toggleMenu('projectSelectorMenu')" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-black/[0.08] dark:border-white/10 bg-white/95 dark:bg-stone-800 hover:border-blue-500 text-xs font-bold text-stone-800 dark:text-stone-100 transition shadow-2xs cursor-pointer">
+                        <span id="current-project-icon">⚡</span>
+                        <span id="current-project-name" class="max-w-[140px] truncate">Server Admin</span>
+                        <i class="fa-solid fa-chevron-down text-[9px] text-stone-400"></i>
+                    </button>
+
+                    <!-- Projects Dropdown Menu -->
+                    <div id="projectSelectorMenu" class="hidden absolute right-0 top-full mt-2 w-72 bg-white dark:bg-stone-900 rounded-2xl shadow-2xl border border-black/[0.08] dark:border-white/10 p-2 z-50 text-left">
+                        <div class="px-3 py-1.5 text-[10px] font-bold text-stone-400 uppercase tracking-wider border-b border-black/[0.05] dark:border-white/[0.05] mb-1 flex items-center justify-between">
+                            <span>สลับโปรเจกต์ (Workspaces)</span>
+                            <button onclick="openNewProjectModal()" class="text-blue-500 hover:underline text-[10px] cursor-pointer">+ โปรเจกต์ใหม่</button>
+                        </div>
+                        <div id="projects-list" class="grid grid-cols-1 gap-1 max-h-[300px] overflow-y-auto">
+                            {% for p in projects %}
+                            <button onclick="switchProject('{{ p.id }}', '{{ p.icon }}', '{{ p.name }}', '{{ p.working_dir }}')" class="w-full text-left p-2 rounded-xl hover:bg-stone-100 dark:hover:bg-stone-800 flex items-center justify-between text-xs font-semibold text-stone-800 dark:text-stone-200 cursor-pointer">
+                                <span class="flex items-center gap-2 truncate">
+                                    <span>{{ p.icon }}</span>
+                                    <span class="truncate">{{ p.name }}</span>
+                                </span>
+                                <span class="text-[10px] text-stone-400 font-mono">{{ p.working_dir }}</span>
+                            </button>
+                            {% endfor %}
+                        </div>
+                        <div class="pt-2 border-t border-black/[0.06] dark:border-white/[0.06] mt-1">
+                            <button onclick="openNewProjectModal()" class="w-full p-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 text-[#0569ff] text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer">
+                                <i class="fa-solid fa-plus text-[10px]"></i>
+                                <span>สร้างโปรเจกต์ใหม่ (Workspace)</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: SaaS Dropdown & Super Admin Profile -->
+            <div class="flex items-center gap-2">
                 <!-- SaaS Selector -->
                 <div class="relative" id="thaidSaasDropdownWrap">
-                    <button type="button" onclick="toggleMenu('thaidSaasMenu')" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-black/[0.08] dark:border-white/10 bg-white/90 dark:bg-stone-800 hover:bg-stone-50 text-xs font-semibold text-stone-700 dark:text-stone-200 transition shadow-2xs cursor-pointer">
+                    <button type="button" onclick="toggleMenu('thaidSaasMenu')" class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-black/[0.08] dark:border-white/10 bg-white/90 dark:bg-stone-800 hover:bg-stone-50 text-xs font-semibold text-stone-700 dark:text-stone-200 transition shadow-2xs cursor-pointer">
                         <span class="text-[#0569ff] font-bold text-xs">✦</span>
-                        <span class="hidden sm:inline">เลือกบริการ SaaS</span>
+                        <span>SaaS Apps</span>
                         <i class="fa-solid fa-chevron-down text-[9px] text-stone-400"></i>
                     </button>
 
                     <!-- SaaS Dropdown Menu -->
                     <div id="thaidSaasMenu" class="hidden absolute right-0 top-full mt-2 w-72 bg-white dark:bg-stone-900 rounded-2xl shadow-2xl border border-black/[0.08] dark:border-white/10 p-2 z-50 text-left">
                         <div class="px-3 py-1.5 text-[10px] font-bold text-stone-400 uppercase tracking-wider border-b border-black/[0.05] dark:border-white/[0.05] mb-1 flex items-center justify-between">
-                            <span>ThaiD SaaS Ecosystem</span>
-                            <span class="text-emerald-600 font-semibold">8 แอปพลิเคชัน</span>
+                            <span>ThaiD Ecosystem</span>
+                            <span class="text-emerald-600 font-semibold">8 Apps</span>
                         </div>
                         <div class="grid grid-cols-1 gap-1 max-h-[360px] overflow-y-auto">
                             <a href="https://novel.thaid.online" class="p-2 rounded-xl hover:bg-stone-100 dark:hover:bg-stone-800 flex items-center justify-between text-xs font-semibold text-stone-800 dark:text-stone-200">
@@ -124,7 +167,7 @@
                     </div>
                 </div>
 
-                <!-- User Profile Pill (Standard Initial Avatar 'J') -->
+                <!-- Super Admin Profile Pill -->
                 <div class="relative">
                     <button type="button" onclick="toggleMenu('thaidProfileMenu')" class="flex items-center gap-1.5 p-1 pl-1 pr-2.5 rounded-full border border-black/[0.08] dark:border-white/10 hover:border-[#0569ff] transition bg-white dark:bg-stone-800 shadow-2xs cursor-pointer group">
                         <div class="w-6 h-6 rounded-full bg-[#004bb5] text-white flex items-center justify-center font-bold text-xs shrink-0 select-none">
@@ -151,7 +194,7 @@
                         <div class="py-2 text-[11px] space-y-1">
                             <div class="flex items-center justify-between px-2 py-1.5 rounded-xl bg-stone-50 dark:bg-stone-800 border border-black/[0.04] mb-2">
                                 <span class="text-stone-500">สถานะ:</span>
-                                <span class="px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/50 text-purple-800 dark:text-purple-300 font-bold text-[10px] border border-purple-200/50">👑 Super Admin (All Access)</span>
+                                <span class="px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/50 text-purple-800 dark:text-purple-300 font-bold text-[10px] border border-purple-200/50">👑 Super Admin</span>
                             </div>
 
                             <a href="https://thaid.online/admin" target="_blank" class="flex items-center justify-between px-2.5 py-2 rounded-xl bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/40 text-purple-900 dark:text-purple-200 font-semibold text-xs transition border border-purple-200/60 mb-2">
@@ -161,21 +204,6 @@
                                 </span>
                                 <span class="text-[10px] text-purple-600">→</span>
                             </a>
-
-                            <div class="px-1 text-[10px] uppercase font-bold text-stone-400 tracking-wider">
-                                บริการที่คุณสมัครใช้งานแล้ว
-                            </div>
-                            <div class="space-y-0.5">
-                                <a href="https://novel.thaid.online" class="flex items-center justify-between px-2 py-1 rounded-lg hover:bg-stone-50 text-stone-700 dark:text-stone-300 text-xs">
-                                    <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Novel Studio</span><span class="text-[10px] text-stone-400">→</span>
-                                </a>
-                                <a href="https://social.thaid.online/dashboard" class="flex items-center justify-between px-2 py-1 rounded-lg hover:bg-stone-50 text-stone-700 dark:text-stone-300 text-xs">
-                                    <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Social Poster</span><span class="text-[10px] text-stone-400">→</span>
-                                </a>
-                                <a href="https://clip.thaid.online" class="flex items-center justify-between px-2 py-1 rounded-lg hover:bg-stone-50 text-stone-700 dark:text-stone-300 text-xs">
-                                    <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Clip AI Shorts</span><span class="text-[10px] text-stone-400">→</span>
-                                </a>
-                            </div>
                         </div>
 
                         <button type="button" onclick="logout()" class="w-full mt-1 pt-2 border-t border-black/[0.06] dark:border-white/[0.06] text-left text-xs font-semibold text-rose-600 hover:text-rose-700 flex items-center justify-between px-2 py-1 rounded-lg hover:bg-rose-50/50 cursor-pointer">
@@ -190,148 +218,186 @@
         </div>
     </header>
 
-    <!-- 2. MAIN LAYOUT: SIDEBAR + CHAT CANVAS -->
+    <!-- 2. MAIN LAYOUT: SIDEBAR (THREADS & CONTROLS) + CENTER CHAT CANVAS -->
     <div class="flex-1 flex overflow-hidden max-w-7xl w-full mx-auto p-2 sm:p-4 gap-4">
 
-        <!-- LEFT SIDEBAR: QUICK CONTROLS & SYSTEM METRICS -->
-        <aside class="hidden lg:flex flex-col w-72 shrink-0 bg-white dark:bg-stone-900 border border-black/[0.06] dark:border-white/[0.08] rounded-3xl p-4 shadow-xs space-y-5 overflow-y-auto">
+        <!-- LEFT SIDEBAR: THREADS & QUICK CONTROLS -->
+        <aside class="hidden lg:flex flex-col w-80 shrink-0 bg-white dark:bg-stone-900 border border-black/[0.06] dark:border-white/[0.08] rounded-3xl p-3.5 shadow-xs space-y-4 overflow-hidden">
             
-            <!-- Server Status Card -->
-            <div>
-                <div class="text-[11px] font-bold uppercase tracking-wider text-stone-400 mb-2 flex items-center justify-between">
-                    <span>Host Status</span>
-                    <button onclick="refreshMetrics()" class="text-blue-500 hover:underline text-[10px] cursor-pointer"><i class="fa-solid fa-arrows-rotate"></i> รีเฟรช</button>
+            <!-- + New Chat Button -->
+            <button onclick="createNewChat()" class="w-full py-2.5 px-3 rounded-2xl bg-[#0569ff] hover:bg-blue-600 active:scale-[0.98] text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition cursor-pointer">
+                <i class="fa-solid fa-plus text-xs"></i>
+                <span>สร้างแชทใหม่ (New Chat)</span>
+            </button>
+
+            <!-- Sidebar Navigation Tabs -->
+            <div class="flex items-center p-1 bg-stone-100 dark:bg-stone-800/80 rounded-xl text-xs font-semibold">
+                <button id="tab-btn-chats" onclick="switchSidebarTab('chats')" class="flex-1 py-1.5 rounded-lg bg-white dark:bg-stone-900 shadow-2xs text-stone-900 dark:text-white transition cursor-pointer">
+                    <i class="fa-regular fa-comments mr-1"></i> แชท
+                </button>
+                <button id="tab-btn-tools" onclick="switchSidebarTab('tools')" class="flex-1 py-1.5 rounded-lg text-stone-500 hover:text-stone-800 dark:hover:text-white transition cursor-pointer">
+                    <i class="fa-solid fa-terminal mr-1"></i> คำสั่งด่วน
+                </button>
+                <button id="tab-btn-status" onclick="switchSidebarTab('status')" class="flex-1 py-1.5 rounded-lg text-stone-500 hover:text-stone-800 dark:hover:text-white transition cursor-pointer">
+                    <i class="fa-solid fa-chart-pie mr-1"></i> เซิร์ฟเวอร์
+                </button>
+            </div>
+
+            <!-- TAB CONTENT 1: CHATS LIST -->
+            <div id="tab-content-chats" class="flex-1 overflow-y-auto space-y-1.5 pr-1">
+                <div class="text-[10px] font-bold uppercase tracking-wider text-stone-400 px-2 py-1 flex items-center justify-between">
+                    <span>แชทในโปรเจกต์นี้</span>
+                    <span id="threads-count-badge" class="px-1.5 py-0.2 bg-stone-100 dark:bg-stone-800 rounded text-stone-500 text-[10px]">0</span>
                 </div>
-                
+                <div id="threads-list" class="space-y-1">
+                    <!-- Populated by JavaScript -->
+                    <div class="p-3 text-center text-stone-400 text-xs">กำลังโหลดบทสนทนา...</div>
+                </div>
+            </div>
+
+            <!-- TAB CONTENT 2: QUICK TOOLS (Collapsed in Tab) -->
+            <div id="tab-content-tools" class="hidden flex-1 overflow-y-auto space-y-2 pr-1">
+                <div class="text-[10px] font-bold uppercase tracking-wider text-stone-400 px-2 py-1">
+                    คำสั่งลัดเซิร์ฟเวอร์
+                </div>
+                <div class="grid grid-cols-1 gap-2">
+                    <button onclick="runQuickAction('docker_status', 'ตรวจสถานะ Docker Containers')" class="p-2.5 rounded-xl bg-stone-50 hover:bg-stone-100 dark:bg-stone-800/60 dark:hover:bg-stone-800 transition text-left cursor-pointer border border-black/[0.04]">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="flex items-center gap-1.5 text-xs font-bold text-stone-800 dark:text-stone-200">
+                                <i class="fa-brands fa-docker text-blue-500"></i>
+                                <span>ตรวจ Docker Containers</span>
+                            </span>
+                        </div>
+                        <div class="text-[10px] text-stone-400 leading-tight">เช็คสถานะและพอร์ตของคอนเทนเนอร์ทั้งหมด</div>
+                    </button>
+
+                    <button onclick="runQuickAction('coolify_status', 'ดูสถานะแอปทั้งหมดใน Coolify')" class="p-2.5 rounded-xl bg-stone-50 hover:bg-stone-100 dark:bg-stone-800/60 dark:hover:bg-stone-800 transition text-left cursor-pointer border border-black/[0.04]">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="flex items-center gap-1.5 text-xs font-bold text-stone-800 dark:text-stone-200">
+                                <i class="fa-solid fa-cloud text-purple-500"></i>
+                                <span>เช็คสถานะ Coolify Apps</span>
+                            </span>
+                        </div>
+                        <div class="text-[10px] text-stone-400 leading-tight">ดูประวัติการ Deploy และสถานะของ 8 บริการ</div>
+                    </button>
+
+                    <button onclick="runQuickAction('coolify_deploy_all', 'Deploy ทุกแอพในระบบ (Rebuild)', true, 'คุณกำลังจะสั่ง Rebuild และ Deploy ทุกแอปพลิเคชันทั้ง 8 บริการในระบบพร้อมกัน ซึ่งอาจใช้เวลาสักครู่')" class="p-2.5 rounded-xl bg-stone-50 hover:bg-rose-50/50 dark:bg-stone-800/60 dark:hover:bg-rose-950/20 transition text-left cursor-pointer border border-black/[0.04]">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="flex items-center gap-1.5 text-xs font-bold text-stone-800 dark:text-stone-200">
+                                <i class="fa-solid fa-rocket text-rose-500"></i>
+                                <span>Rebuild & Deploy ทั้งหมด</span>
+                            </span>
+                            <span class="text-[9px] px-1 py-0.5 rounded bg-rose-100 dark:bg-rose-900/40 text-rose-600 font-semibold">⚠️ ยืนยันก่อน</span>
+                        </div>
+                        <div class="text-[10px] text-stone-400 leading-tight">สั่ง Rebuild ทุกแอปใหม่จาก GitHub</div>
+                    </button>
+
+                    <button onclick="runQuickAction('disk_cleanup', 'เคลียร์ Docker Cache ที่ไม่ได้ใช้', true, 'คุณต้องการล้างแคช Docker Build Cache และเลเยอร์ที่ไม่ได้ใช้งาน เพื่อคืนพื้นที่ Harddisk ใช่หรือไม่?')" class="p-2.5 rounded-xl bg-stone-50 hover:bg-amber-50/50 dark:bg-stone-800/60 dark:hover:bg-amber-950/20 transition text-left cursor-pointer border border-black/[0.04]">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="flex items-center gap-1.5 text-xs font-bold text-stone-800 dark:text-stone-200">
+                                <i class="fa-solid fa-broom text-amber-500"></i>
+                                <span>Prune Docker Cache</span>
+                            </span>
+                            <span class="text-[9px] px-1 py-0.5 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 font-semibold">⚠️ ยืนยันก่อน</span>
+                        </div>
+                        <div class="text-[10px] text-stone-400 leading-tight">ล้าง Cache ตกค้างเพื่อคืนพื้นที่ Disk</div>
+                    </button>
+                </div>
+            </div>
+
+            <!-- TAB CONTENT 3: STATUS -->
+            <div id="tab-content-status" class="hidden flex-1 overflow-y-auto space-y-3 pr-1">
+                <div class="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-stone-400 px-2 py-1">
+                    <span>Host Status</span>
+                    <button onclick="refreshMetrics()" class="text-blue-500 hover:underline cursor-pointer"><i class="fa-solid fa-arrows-rotate"></i> รีเฟรช</button>
+                </div>
                 <div class="bg-stone-50 dark:bg-stone-800/60 rounded-2xl p-3 border border-black/[0.04] space-y-2.5">
-                    <!-- CPU -->
                     <div>
                         <div class="flex items-center justify-between text-xs font-medium mb-1">
                             <span class="text-stone-500">CPU Usage</span>
-                            <span id="metric-cpu" class="font-bold text-stone-800 dark:text-stone-200">--%</span>
+                            <span id="metric-cpu" class="font-bold">--%</span>
                         </div>
                         <div class="w-full h-1.5 bg-stone-200 dark:bg-stone-700 rounded-full overflow-hidden">
                             <div id="metric-cpu-bar" class="h-full bg-blue-500 rounded-full transition-all duration-300" style="width: 0%"></div>
                         </div>
                     </div>
-
-                    <!-- RAM -->
                     <div>
                         <div class="flex items-center justify-between text-xs font-medium mb-1">
                             <span class="text-stone-500">RAM (Memory)</span>
-                            <span id="metric-ram" class="font-bold text-stone-800 dark:text-stone-200">-- GB</span>
+                            <span id="metric-ram" class="font-bold">-- GB</span>
                         </div>
                         <div class="w-full h-1.5 bg-stone-200 dark:bg-stone-700 rounded-full overflow-hidden">
                             <div id="metric-ram-bar" class="h-full bg-purple-500 rounded-full transition-all duration-300" style="width: 0%"></div>
                         </div>
                     </div>
-
-                    <!-- Disk -->
                     <div>
                         <div class="flex items-center justify-between text-xs font-medium mb-1">
                             <span class="text-stone-500">Disk Space</span>
-                            <span id="metric-disk" class="font-bold text-stone-800 dark:text-stone-200">-- GB</span>
+                            <span id="metric-disk" class="font-bold">-- GB</span>
                         </div>
                         <div class="w-full h-1.5 bg-stone-200 dark:bg-stone-700 rounded-full overflow-hidden">
                             <div id="metric-disk-bar" class="h-full bg-emerald-500 rounded-full transition-all duration-300" style="width: 0%"></div>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Quick DevOps Actions -->
-            <div>
-                <div class="flex items-center justify-between mb-1.5">
-                    <div class="text-[11px] font-bold uppercase tracking-wider text-stone-500 dark:text-stone-400">
-                        Quick Commands
-                    </div>
-                    <span class="text-[10px] text-stone-400">คลิกเพื่อสั่งงาน</span>
-                </div>
-                <div class="text-[11px] text-stone-400 mb-2.5 leading-snug">
-                    ปุ่มคำสั่งลัดสำหรับส่งให้ Agent จัดการเซิร์ฟเวอร์โดยไม่ต้องพิมพ์คำสั่งเอง
-                </div>
-                <div class="grid grid-cols-1 gap-2">
-                    <!-- 1. Docker Containers -->
-                    <button onclick="runQuickAction('docker_status', 'ตรวจสถานะ Docker Containers')" class="p-2.5 rounded-xl bg-stone-50 hover:bg-stone-100 dark:bg-stone-800/60 dark:hover:bg-stone-800 transition text-left cursor-pointer border border-black/[0.04] group">
-                        <div class="flex items-center justify-between mb-1">
-                            <span class="flex items-center gap-2 text-xs font-bold text-stone-800 dark:text-stone-200">
-                                <i class="fa-brands fa-docker text-blue-500"></i>
-                                <span>ตรวจ Docker Containers</span>
-                            </span>
-                            <i class="fa-solid fa-play text-[9px] text-stone-400 group-hover:text-blue-500 transition-colors"></i>
-                        </div>
-                        <div class="text-[10px] text-stone-400 pl-6 leading-tight">
-                            เช็คสถานะและพอร์ตของคอนเทนเนอร์ทั้งหมด
-                        </div>
-                    </button>
-
-                    <!-- 2. Coolify Apps -->
-                    <button onclick="runQuickAction('coolify_status', 'ดูสถานะแอปทั้งหมดใน Coolify')" class="p-2.5 rounded-xl bg-stone-50 hover:bg-stone-100 dark:bg-stone-800/60 dark:hover:bg-stone-800 transition text-left cursor-pointer border border-black/[0.04] group">
-                        <div class="flex items-center justify-between mb-1">
-                            <span class="flex items-center gap-2 text-xs font-bold text-stone-800 dark:text-stone-200">
-                                <i class="fa-solid fa-cloud text-purple-500"></i>
-                                <span>เช็คสถานะ Coolify Apps</span>
-                            </span>
-                            <i class="fa-solid fa-play text-[9px] text-stone-400 group-hover:text-purple-500 transition-colors"></i>
-                        </div>
-                        <div class="text-[10px] text-stone-400 pl-6 leading-tight">
-                            ดูประวัติการ Deploy และสถานะของทั้ง 8 บริการ
-                        </div>
-                    </button>
-
-                    <!-- 3. Deploy All 8 Apps (Requires Confirm) -->
-                    <button onclick="runQuickAction('coolify_deploy_all', 'Deploy ทุกแอพในระบบ (Rebuild)', true, 'คุณกำลังจะสั่ง Rebuild และ Deploy ทุกแอปพลิเคชันทั้ง 8 บริการในระบบพร้อมกัน ซึ่งอาจใช้เวลาประมวลผลสักครู่')" class="p-2.5 rounded-xl bg-stone-50 hover:bg-rose-50/50 dark:bg-stone-800/60 dark:hover:bg-rose-950/20 transition text-left cursor-pointer border border-black/[0.04] hover:border-rose-300/50 group">
-                        <div class="flex items-center justify-between mb-1">
-                            <span class="flex items-center gap-2 text-xs font-bold text-stone-800 dark:text-stone-200 group-hover:text-rose-600 transition-colors">
-                                <i class="fa-solid fa-rocket text-rose-500"></i>
-                                <span>Rebuild & Deploy ทั้งหมด</span>
-                            </span>
-                            <span class="text-[9px] px-1.5 py-0.5 rounded-full bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-300 font-semibold border border-rose-200/50">⚠️ ยืนยันก่อน</span>
-                        </div>
-                        <div class="text-[10px] text-stone-400 pl-6 leading-tight">
-                            สั่ง Rebuild ทุกแอปใหม่จาก GitHub (มีป๊อปอัปยืนยันก่อน)
-                        </div>
-                    </button>
-
-                    <!-- 4. Prune Docker Cache (Requires Confirm) -->
-                    <button onclick="runQuickAction('disk_cleanup', 'เคลียร์ Docker Cache ที่ไม่ได้ใช้', true, 'คุณต้องการล้างแคช Docker Build Cache และเลเยอร์ที่ไม่ได้ใช้งาน เพื่อคืนพื้นที่ Harddisk ใช่หรือไม่?')" class="p-2.5 rounded-xl bg-stone-50 hover:bg-amber-50/50 dark:bg-stone-800/60 dark:hover:bg-amber-950/20 transition text-left cursor-pointer border border-black/[0.04] hover:border-amber-300/50 group">
-                        <div class="flex items-center justify-between mb-1">
-                            <span class="flex items-center gap-2 text-xs font-bold text-stone-800 dark:text-stone-200 group-hover:text-amber-600 transition-colors">
-                                <i class="fa-solid fa-broom text-amber-500"></i>
-                                <span>Prune Docker Cache</span>
-                            </span>
-                            <span class="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 font-semibold border border-amber-200/50">⚠️ ยืนยันก่อน</span>
-                        </div>
-                        <div class="text-[10px] text-stone-400 pl-6 leading-tight">
-                            ล้างไฟล์ขยะและ Cache ที่ตกค้างเพื่อคืนพื้นที่ Disk
-                        </div>
-                    </button>
+                <div class="p-3 bg-stone-50 dark:bg-stone-800/40 rounded-2xl border border-black/[0.04] text-[11px] space-y-1 text-stone-500">
+                    <div>Host: <span class="font-mono text-stone-700 dark:text-stone-300">129.221.170.225</span></div>
+                    <div>OS: <span class="text-stone-700 dark:text-stone-300">Ubuntu 24.04 (Oracle Cloud)</span></div>
+                    <div>Storage: <span class="text-emerald-500 font-semibold">SQLite Persistent Volume</span></div>
                 </div>
             </div>
 
-            <!-- Server Environment Note -->
-            <div class="mt-auto pt-3 border-t border-black/[0.06] dark:border-white/[0.06] text-[11px] text-stone-400 space-y-1">
-                <div>Host: <span class="font-mono text-stone-600 dark:text-stone-300">129.221.170.225</span></div>
-                <div>OS: <span class="font-medium text-stone-600 dark:text-stone-300">Ubuntu 24.04 (Oracle Cloud)</span></div>
-                <div>Agent: <span class="text-emerald-500 font-semibold">Gemini 3.8 Flash Engine</span></div>
+            <!-- Multi-Key Pool Footer Info -->
+            <div class="mt-auto pt-2.5 border-t border-black/[0.06] dark:border-white/[0.06] text-[11px] flex items-center justify-between text-stone-500">
+                <span class="flex items-center gap-1.5 font-medium">
+                    <i class="fa-solid fa-shield-halved text-emerald-500"></i>
+                    <span>Key Rotation Active</span>
+                </span>
+                <span class="text-stone-400 font-mono text-[10px]">{{ key_status.active_keys }}/{{ key_status.total_keys }} คีย์</span>
             </div>
         </aside>
 
         <!-- CENTER CHAT CANVAS -->
         <main class="flex-1 flex flex-col bg-white dark:bg-stone-900 border border-black/[0.06] dark:border-white/[0.08] rounded-3xl shadow-xs overflow-hidden relative">
             
+            <!-- CHAT HEADER: WORKSPACE INFO & AGENT MODE SELECTOR -->
+            <div class="px-4 py-2.5 border-b border-black/[0.06] dark:border-white/[0.08] bg-stone-50/70 dark:bg-stone-800/40 flex items-center justify-between gap-3">
+                
+                <!-- Workspace Breadcrumb -->
+                <div class="flex items-center gap-2 text-xs truncate">
+                    <span class="font-bold text-stone-800 dark:text-stone-100 flex items-center gap-1.5 truncate">
+                        <span id="canvas-project-icon">⚡</span>
+                        <span id="canvas-project-name">Infrastructure & Server Admin</span>
+                    </span>
+                    <span class="text-stone-300 dark:text-stone-600">|</span>
+                    <span id="canvas-project-dir" class="text-stone-400 font-mono text-[11px] truncate">/</span>
+                </div>
+
+                <!-- Agent Mode Switcher (Single vs Multi-Agent Team) -->
+                <div class="flex items-center gap-1 bg-white dark:bg-stone-900 border border-black/[0.08] dark:border-white/10 rounded-full p-0.5 shadow-2xs">
+                    <button id="mode-btn-single" onclick="setAgentMode('single')" class="px-2.5 py-1 rounded-full text-xs font-bold bg-[#0569ff] text-white shadow-2xs transition cursor-pointer" title="ตอบรวดเร็ว เหมาะกับการสั่งรัน Tool หรือสอบถามสถานะทั่วไป">
+                        ⚡ เดี่ยว (Fast)
+                    </button>
+                    <button id="mode-btn-team" onclick="setAgentMode('team')" class="px-2.5 py-1 rounded-full text-xs font-bold text-stone-500 hover:text-stone-800 dark:hover:text-white transition cursor-pointer" title="ทำงานเป็นทีม: Planner วางแผน ➔ Coder ลงมือเขียน/รัน ➔ QA ตรวจสอบ เหมาะกับงานใหญ่หรือเขียนโค้ด">
+                        🤝 ทีม Agent (Planner + Coder)
+                    </button>
+                </div>
+
+            </div>
+
             <!-- Chat Messages Container -->
             <div id="chat-messages" class="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5">
                 
                 <!-- Welcome Banner -->
-                <div class="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50/50 dark:from-stone-800/80 dark:to-stone-800/40 border border-blue-100 dark:border-stone-700/60 flex items-start gap-4">
+                <div id="welcome-banner" class="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50/50 dark:from-stone-800/80 dark:to-stone-800/40 border border-blue-100 dark:border-stone-700/60 flex items-start gap-4">
                     <div class="w-10 h-10 rounded-2xl bg-[#0569ff] text-white flex items-center justify-center font-bold text-lg shrink-0 shadow-md">
                         ⚡
                     </div>
                     <div>
-                        <h2 class="text-sm font-bold text-stone-900 dark:text-stone-100">ThaiD Antigravity Agent ยินดีต้อนรับครับ Admin Jotaki!</h2>
+                        <h2 class="text-sm font-bold text-stone-900 dark:text-stone-100">ThaiD Antigravity Workspace & Agent Console</h2>
                         <p class="text-xs text-stone-600 dark:text-stone-400 mt-1 leading-relaxed">
-                            ระบบพร้อมรับคำสั่งควบคุมเซิร์ฟเวอร์, ตรวจสอบ Docker, รันคำสั่ง Shell, หรือเขียนและแก้ไขโค้ดโปรเจกต์ทั้ง 8 บริการในระบบ คุณสามารถสั่งงานด้วยภาษาไทยผ่านช่องแชทด้านล่าง หรือแตะปุ่มคำสั่งด่วนได้เลยครับ
+                            ระบบพร้อมรับคำสั่งพัฒนาโค้ดและควบคุมเซิร์ฟเวอร์ด้วย <b>Gemini Multi-Key Pool (46 คีย์จาก ThaiD Vault)</b> พร้อมระบบสลับ Workspace และโหมด <b>ทีม Agent หลายตัวทำงานร่วมกัน</b> คุณสามารถพิมพ์สั่งงานได้ทันทีครับ
                         </p>
                         
                         <!-- Quick Prompts Chips -->
@@ -351,7 +417,7 @@
 
             </div>
 
-            <!-- Typing / Tool In-Progress Bar (Hidden by default) -->
+            <!-- Typing / Tool In-Progress Bar -->
             <div id="agent-status-bar" class="hidden px-4 py-2 border-t border-black/[0.04] bg-stone-50 dark:bg-stone-800/40 text-xs text-stone-500 flex items-center justify-between">
                 <div class="flex items-center gap-2">
                     <span class="w-2 h-2 rounded-full bg-blue-500 animate-ping"></span>
@@ -370,7 +436,7 @@
                     <textarea 
                         id="prompt-input"
                         rows="1"
-                        placeholder="สั่งงาน Antigravity Agent เช่น ตรวจเช็คสถานะเซิร์ฟเวอร์, ดู log, สั่ง deploy..."
+                        placeholder="สั่งงาน Antigravity Agent เช่น ตรวจเช็คสถานะเซิร์ฟเวอร์, ดู log, เขียนโค้ด, สั่ง deploy..."
                         class="flex-1 bg-stone-50 dark:bg-stone-800 border border-black/[0.08] dark:border-white/10 rounded-2xl px-4 py-3 text-xs sm:text-sm text-stone-900 dark:text-white placeholder-stone-400 focus:outline-none focus:border-[#0569ff] resize-none max-h-32 transition"
                         onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); handleSubmit(event); }"
                     ></textarea>
@@ -389,15 +455,57 @@
 
     </div>
 
-    <!-- 3. CLIENT SCRIPT -->
+    <!-- 3. MODAL: CREATE NEW PROJECT -->
+    <div id="newProjectModal" class="hidden fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-stone-900 border border-black/[0.08] dark:border-white/10 rounded-3xl max-w-md w-full p-5 shadow-2xl space-y-4">
+            <div class="flex items-center justify-between">
+                <h3 class="text-sm font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
+                    <span>📁</span>
+                    <span>สร้างโปรเจกต์ใหม่ (Workspace)</span>
+                </h3>
+                <button onclick="closeNewProjectModal()" class="text-stone-400 hover:text-stone-600 text-xs cursor-pointer"><i class="fa-solid fa-xmark text-sm"></i></button>
+            </div>
+
+            <form onsubmit="handleCreateProject(event)" class="space-y-3 text-xs">
+                <div>
+                    <label class="block font-bold text-stone-600 dark:text-stone-300 mb-1">ชื่อโปรเจกต์</label>
+                    <input type="text" id="np-name" required placeholder="เช่น ThaiD Mobile App หรือ Next.js Blog" class="w-full bg-stone-50 dark:bg-stone-800 border border-black/[0.08] dark:border-white/10 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block font-bold text-stone-600 dark:text-stone-300 mb-1">อิโมจิไอคอน</label>
+                    <input type="text" id="np-icon" value="📁" class="w-full bg-stone-50 dark:bg-stone-800 border border-black/[0.08] dark:border-white/10 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block font-bold text-stone-600 dark:text-stone-300 mb-1">Working Directory บนเซิร์ฟเวอร์</label>
+                    <input type="text" id="np-dir" placeholder="เช่น /var/www/my-project หรือ /" value="/" class="w-full bg-stone-50 dark:bg-stone-800 border border-black/[0.08] dark:border-white/10 rounded-xl px-3 py-2 text-xs font-mono focus:outline-none focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block font-bold text-stone-600 dark:text-stone-300 mb-1">รายละเอียดหรือข้อกำหนดเฉพาะ</label>
+                    <textarea id="np-desc" rows="2" placeholder="อธิบายหน้าที่ของโปรเจกต์ เทคโนโลยีที่ใช้ หรือกฎการเขียนโค้ด" class="w-full bg-stone-50 dark:bg-stone-800 border border-black/[0.08] dark:border-white/10 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500"></textarea>
+                </div>
+                <div class="flex items-center justify-end gap-2 pt-2">
+                    <button type="button" onclick="closeNewProjectModal()" class="px-3 py-1.5 rounded-xl border border-black/[0.08] text-stone-600 hover:bg-stone-50 cursor-pointer">ยกเลิก</button>
+                    <button type="submit" class="px-4 py-1.5 rounded-xl bg-[#0569ff] text-white font-bold hover:bg-blue-600 cursor-pointer">สร้างโปรเจกต์</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 4. CLIENT LOGIC -->
     <script>
         const chatContainer = document.getElementById('chat-messages');
         const promptInput = document.getElementById('prompt-input');
         const statusBar = document.getElementById('agent-status-bar');
         const statusText = document.getElementById('agent-status-text');
         const btnSend = document.getElementById('btn-send');
+        const welcomeBanner = document.getElementById('welcome-banner');
 
-        let chatHistory = [];
+        // State
+        let currentProjectId = 'server';
+        let currentProjectName = 'Infrastructure & Server Admin';
+        let currentProjectDir = '/';
+        let currentThreadId = null;
+        let currentAgentMode = 'single'; // 'single' or 'team'
         let isProcessing = false;
 
         function toggleMenu(menuId) {
@@ -415,7 +523,35 @@
                 const m = document.getElementById('thaidProfileMenu');
                 if (m && !m.classList.contains('hidden')) m.classList.add('hidden');
             }
+            if (!e.target.closest('#projectSelectorWrap')) {
+                const m = document.getElementById('projectSelectorMenu');
+                if (m && !m.classList.contains('hidden')) m.classList.add('hidden');
+            }
         });
+
+        function switchSidebarTab(tab) {
+            document.getElementById('tab-content-chats').classList.toggle('hidden', tab !== 'chats');
+            document.getElementById('tab-content-tools').classList.toggle('hidden', tab !== 'tools');
+            document.getElementById('tab-content-status').classList.toggle('hidden', tab !== 'status');
+
+            document.getElementById('tab-btn-chats').className = tab === 'chats' ? 'flex-1 py-1.5 rounded-lg bg-white dark:bg-stone-900 shadow-2xs text-stone-900 dark:text-white transition cursor-pointer' : 'flex-1 py-1.5 rounded-lg text-stone-500 hover:text-stone-800 dark:hover:text-white transition cursor-pointer';
+            document.getElementById('tab-btn-tools').className = tab === 'tools' ? 'flex-1 py-1.5 rounded-lg bg-white dark:bg-stone-900 shadow-2xs text-stone-900 dark:text-white transition cursor-pointer' : 'flex-1 py-1.5 rounded-lg text-stone-500 hover:text-stone-800 dark:hover:text-white transition cursor-pointer';
+            document.getElementById('tab-btn-status').className = tab === 'status' ? 'flex-1 py-1.5 rounded-lg bg-white dark:bg-stone-900 shadow-2xs text-stone-900 dark:text-white transition cursor-pointer' : 'flex-1 py-1.5 rounded-lg text-stone-500 hover:text-stone-800 dark:hover:text-white transition cursor-pointer';
+        }
+
+        function setAgentMode(mode) {
+            currentAgentMode = mode;
+            const btnSingle = document.getElementById('mode-btn-single');
+            const btnTeam = document.getElementById('mode-btn-team');
+
+            if (mode === 'team') {
+                btnTeam.className = "px-2.5 py-1 rounded-full text-xs font-bold bg-[#0569ff] text-white shadow-2xs transition cursor-pointer";
+                btnSingle.className = "px-2.5 py-1 rounded-full text-xs font-bold text-stone-500 hover:text-stone-800 dark:hover:text-white transition cursor-pointer";
+            } else {
+                btnSingle.className = "px-2.5 py-1 rounded-full text-xs font-bold bg-[#0569ff] text-white shadow-2xs transition cursor-pointer";
+                btnTeam.className = "px-2.5 py-1 rounded-full text-xs font-bold text-stone-500 hover:text-stone-800 dark:hover:text-white transition cursor-pointer";
+            }
+        }
 
         async function refreshMetrics() {
             try {
@@ -437,6 +573,174 @@
         }
         refreshMetrics();
         setInterval(refreshMetrics, 15000);
+
+        // Load Threads
+        async function loadThreads(projectId) {
+            try {
+                const res = await fetch(`/api/threads?project_id=${projectId}`);
+                if (!res.ok) return;
+                const data = await res.json();
+                const container = document.getElementById('threads-list');
+                const badge = document.getElementById('threads-count-badge');
+                container.innerHTML = '';
+                badge.innerText = data.threads.length;
+
+                if (data.threads.length === 0) {
+                    container.innerHTML = `
+                        <div class="p-3 text-center text-stone-400 text-xs">
+                            ยังไม่มีแชทในโปรเจกต์นี้<br>
+                            <button onclick="createNewChat()" class="text-blue-500 font-bold hover:underline mt-1">+ สร้างแชทแรก</button>
+                        </div>
+                    `;
+                    return;
+                }
+
+                data.threads.forEach((t, idx) => {
+                    const isActive = currentThreadId === t.id || (!currentThreadId && idx === 0);
+                    if (isActive && !currentThreadId) {
+                        currentThreadId = t.id;
+                    }
+                    const btn = document.createElement('div');
+                    btn.className = `group flex items-center justify-between p-2 rounded-xl text-xs font-semibold cursor-pointer transition ${isActive ? 'bg-blue-50 dark:bg-blue-950/40 text-[#0569ff]' : 'hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-700 dark:text-stone-300'}`;
+                    btn.innerHTML = `
+                        <div class="flex items-center gap-2 truncate flex-1 min-w-0" onclick="switchThread('${t.id}')">
+                            <i class="fa-regular fa-comment text-[11px] ${isActive ? 'text-blue-500' : 'text-stone-400'}"></i>
+                            <span class="truncate">${escapeHtml(t.title)}</span>
+                        </div>
+                        <button onclick="deleteThread(event, '${t.id}')" class="opacity-0 group-hover:opacity-100 p-1 hover:text-rose-500 text-stone-400 text-[10px] transition cursor-pointer" title="ลบแชทนี้">
+                            <i class="fa-regular fa-trash-can"></i>
+                        </button>
+                    `;
+                    container.appendChild(btn);
+                });
+
+                if (currentThreadId) {
+                    loadThreadMessages(currentThreadId);
+                }
+            } catch (err) {
+                console.error("Load threads error:", err);
+            }
+        }
+
+        async function switchThread(threadId) {
+            currentThreadId = threadId;
+            await loadThreads(currentProjectId);
+        }
+
+        async function switchProject(pid, icon, name, dir) {
+            currentProjectId = pid;
+            currentProjectName = name;
+            currentProjectDir = dir;
+            currentThreadId = null;
+
+            document.getElementById('current-project-icon').innerText = icon;
+            document.getElementById('current-project-name').innerText = name;
+            document.getElementById('canvas-project-icon').innerText = icon;
+            document.getElementById('canvas-project-name').innerText = name;
+            document.getElementById('canvas-project-dir').innerText = dir;
+
+            const m = document.getElementById('projectSelectorMenu');
+            if (m) m.classList.add('hidden');
+
+            await loadThreads(pid);
+        }
+
+        async function createNewChat() {
+            try {
+                const res = await fetch('/api/threads', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ project_id: currentProjectId, title: 'แชทใหม่', agent_mode: currentAgentMode })
+                });
+                const d = await res.json();
+                if (d.success) {
+                    currentThreadId = d.thread.id;
+                    await loadThreads(currentProjectId);
+                    chatContainer.innerHTML = '';
+                    if (welcomeBanner) chatContainer.appendChild(welcomeBanner.cloneNode(true));
+                }
+            } catch (e) {
+                console.error("Create thread error:", e);
+            }
+        }
+
+        async function deleteThread(e, threadId) {
+            e.stopPropagation();
+            if (!confirm("คุณแน่ใจหรือไม่ว่าต้องการลบประวัติการสนทนานี้?")) return;
+            try {
+                await fetch(`/api/threads/${threadId}`, { method: 'DELETE' });
+                if (currentThreadId === threadId) currentThreadId = null;
+                await loadThreads(currentProjectId);
+            } catch (err) {
+                console.error("Delete thread error:", err);
+            }
+        }
+
+        async function loadThreadMessages(threadId) {
+            try {
+                const res = await fetch(`/api/threads/${threadId}`);
+                if (!res.ok) return;
+                const data = await res.json();
+                chatContainer.innerHTML = '';
+                
+                if (data.messages.length === 0) {
+                    if (welcomeBanner) chatContainer.appendChild(welcomeBanner.cloneNode(true));
+                    return;
+                }
+
+                data.messages.forEach(m => {
+                    renderSavedMessage(m);
+                });
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            } catch (e) {
+                console.error("Load messages error:", e);
+            }
+        }
+
+        function renderSavedMessage(msg) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`;
+
+            if (msg.role === 'user') {
+                msgDiv.innerHTML = `
+                    <div class="max-w-[85%] sm:max-w-[75%] rounded-2xl rounded-tr-xs bg-[#0569ff] text-white px-4 py-2.5 text-xs sm:text-sm shadow-xs leading-relaxed">
+                        ${escapeHtml(msg.content)}
+                    </div>
+                    <div class="w-8 h-8 rounded-full bg-[#004bb5] text-white flex items-center justify-center font-bold text-xs shrink-0 select-none shadow-xs">
+                        J
+                    </div>
+                `;
+            } else {
+                let toolCardsHtml = "";
+                if (msg.tool_calls && Array.isArray(msg.tool_calls)) {
+                    msg.tool_calls.forEach(tc => {
+                        const argsLabel = tc.args && Object.keys(tc.args).length > 0 ? ` (${JSON.stringify(tc.args).replace(/[{}"]/g, '')})` : '';
+                        toolCardsHtml += `
+                            <div class="p-2 rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 text-[11px] font-mono border border-emerald-500/20 mb-1 flex items-center justify-between">
+                                <span class="font-bold flex items-center gap-1.5 truncate max-w-[80%]">
+                                    <i class="fa-solid fa-check"></i> ${escapeHtml(tc.name || 'Tool')}${escapeHtml(argsLabel)} สำเร็จ
+                                </span>
+                                <span class="text-[9px] text-stone-400">Done</span>
+                            </div>
+                        `;
+                    });
+                }
+
+                msgDiv.innerHTML = `
+                    <div class="w-8 h-8 rounded-2xl bg-stone-900 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-xs">
+                        ⚡
+                    </div>
+                    <div class="max-w-[90%] sm:max-w-[80%] rounded-2xl rounded-tl-xs bg-stone-100 dark:bg-stone-800 text-stone-900 dark:text-stone-100 px-4 py-3 text-xs sm:text-sm shadow-xs leading-relaxed code-block space-y-2">
+                        <div class="tool-logs space-y-1 mb-2">${toolCardsHtml}</div>
+                        <div class="prose dark:prose-invert max-w-none text-xs sm:text-sm">
+                            ${marked.parse(msg.content || '')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            chatContainer.appendChild(msgDiv);
+        }
 
         function appendMessage(role, content) {
             const msgDiv = document.createElement('div');
@@ -470,7 +774,8 @@
         }
 
         function escapeHtml(text) {
-            return text.replace(/[&<>"']/g, function(m) {
+            if (!text) return '';
+            return String(text).replace(/[&<>"']/g, function(m) {
                 return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m];
             });
         }
@@ -485,7 +790,7 @@
             appendMessage('user', prompt);
 
             statusBar.classList.remove('hidden');
-            statusText.innerText = "Agent กำลังวิเคราะห์คำสั่ง...";
+            statusText.innerText = currentAgentMode === 'team' ? "ทีม Agent กำลังวิเคราะห์และวางแผนงาน..." : "Agent กำลังวิเคราะห์คำสั่ง...";
 
             // Prepare bot container for streaming
             const botMsgDiv = document.createElement('div');
@@ -495,6 +800,8 @@
                     ⚡
                 </div>
                 <div class="max-w-[90%] sm:max-w-[80%] rounded-2xl rounded-tl-xs bg-stone-100 dark:bg-stone-800 text-stone-900 dark:text-stone-100 px-4 py-3 text-xs sm:text-sm shadow-xs leading-relaxed code-block space-y-2">
+                    <div class="agent-badges space-y-1 mb-2"></div>
+                    <div class="plan-container hidden mb-3 p-3 rounded-xl bg-blue-50/80 dark:bg-blue-950/30 border border-blue-200/50"></div>
                     <div class="tool-logs space-y-1 mb-2"></div>
                     <div class="bot-content prose dark:prose-invert max-w-none text-xs sm:text-sm"></div>
                 </div>
@@ -502,6 +809,8 @@
             chatContainer.appendChild(botMsgDiv);
             chatContainer.scrollTop = chatContainer.scrollHeight;
 
+            const agentBadges = botMsgDiv.querySelector('.agent-badges');
+            const planContainer = botMsgDiv.querySelector('.plan-container');
             const toolLogs = botMsgDiv.querySelector('.tool-logs');
             const botContent = botMsgDiv.querySelector('.bot-content');
             let accumulatedText = "";
@@ -510,7 +819,12 @@
                 const response = await fetch('/api/agent/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ prompt: prompt, history: chatHistory })
+                    body: JSON.stringify({
+                        prompt: prompt,
+                        thread_id: currentThreadId,
+                        project_id: currentProjectId,
+                        agent_mode: currentAgentMode
+                    })
                 });
 
                 if (!response.ok) {
@@ -528,7 +842,7 @@
 
                     buffer += decoder.decode(value, { stream: true });
                     const lines = buffer.split('\n');
-                    buffer = lines.pop(); // keep remainder
+                    buffer = lines.pop();
 
                     for (const line of lines) {
                         if (!line.startsWith('data: ')) continue;
@@ -538,7 +852,25 @@
                         try {
                             const event = JSON.parse(jsonStr);
 
-                            if (event.type === 'text') {
+                            if (event.type === 'thread_info') {
+                                currentThreadId = event.thread_id;
+                            } else if (event.type === 'pool_status') {
+                                document.getElementById('key-pool-indicator').innerText = `${event.active_keys} Gemini Keys Pool`;
+                            } else if (event.type === 'agent_badge') {
+                                const badge = document.createElement('div');
+                                badge.className = "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-800 dark:text-purple-300 text-[10px] font-bold border border-purple-200/50 mb-1 mr-1";
+                                badge.innerHTML = `<span>${event.role}</span>: <span class="font-normal">${escapeHtml(event.message)}</span>`;
+                                agentBadges.appendChild(badge);
+                            } else if (event.type === 'plan_ready') {
+                                planContainer.classList.remove('hidden');
+                                planContainer.innerHTML = `
+                                    <div class="text-[11px] font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                                        <i class="fa-solid fa-clipboard-list"></i>
+                                        <span>แผนปฏิบัติการของ Lead Architect</span>
+                                    </div>
+                                    <div class="text-xs text-stone-700 dark:text-stone-300 leading-relaxed">${marked.parse(event.plan || '')}</div>
+                                `;
+                            } else if (event.type === 'text') {
                                 accumulatedText += event.content;
                                 botContent.innerHTML = marked.parse(accumulatedText);
                                 hljs.highlightAll();
@@ -599,9 +931,8 @@
                     }
                 }
 
-                // Append to history
-                chatHistory.push({ role: 'user', parts: [{ text: prompt }] });
-                chatHistory.push({ role: 'model', parts: [{ text: accumulatedText }] });
+                // Refresh threads sidebar
+                await loadThreads(currentProjectId);
 
             } catch (err) {
                 botContent.innerHTML += `<div class="text-rose-500">Network Error: ${err.message}</div>`;
@@ -626,10 +957,45 @@
             sendPrompt(promptInput.value);
         }
 
+        function openNewProjectModal() {
+            document.getElementById('newProjectModal').classList.remove('hidden');
+        }
+
+        function closeNewProjectModal() {
+            document.getElementById('newProjectModal').classList.add('hidden');
+        }
+
+        async function handleCreateProject(e) {
+            e.preventDefault();
+            const name = document.getElementById('np-name').value.trim();
+            const icon = document.getElementById('np-icon').value.trim() || '📁';
+            const wdir = document.getElementById('np-dir').value.trim() || '/';
+            const desc = document.getElementById('np-desc').value.trim();
+
+            try {
+                const res = await fetch('/api/projects', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: name, icon: icon, working_dir: wdir, description: desc })
+                });
+                const d = await res.json();
+                if (d.success) {
+                    closeNewProjectModal();
+                    // Reload page to reflect new project in template or switch directly
+                    window.location.reload();
+                }
+            } catch (err) {
+                console.error("Create project error:", err);
+            }
+        }
+
         async function logout() {
             await fetch('/api/auth/logout', { method: 'POST' });
             window.location.href = 'https://thaid.online';
         }
+
+        // Initialize on page load
+        loadThreads(currentProjectId);
     </script>
 </body>
 </html>
