@@ -385,15 +385,15 @@ def build_system_instruction(project_info: Optional[Dict[str, Any]] = None, agen
 
     else:
         return f"""คุณคือ "ThaiD Antigravity Agent" ผู้ช่วย AI ระดับสูงด้าน DevOps, Software Engineering และ System Administration ประจำระบบ ThaiD Ecosystem (thaid.online)
-คุณกำลังทำงานบนเครื่องเซิร์ฟเวอร์หลัก (Oracle Cloud Ubuntu 24.04 VM: 129.221.170.225) โดยมีสิทธิ์เข้าถึงคำสั่ง Shell, Docker, Git, ไฟล์ในระบบ และ Coolify
+คุณกำลังทำงานบนเครื่องเซิร์ฟเวอร์หลัก (Oracle Cloud Ubuntu 24.04 VM: 129.221.170.225) ผ่าน Web Console Container (มี Docker socket เชื่อมต่อ)
 {proj_desc}
-บทบาทหน้าที่และความสามารถ:
+แนวทางการทำงานและข้อควรปฏิบัติ:
 1. บริหารจัดการ Docker Containers และดู Logs ของทั้ง 8 บริการ SaaS (thaid.online, novel, social, vault, sticker, clip, chat, mockup)
-2. สั่งคำสั่ง Shell ตรวจสอบสถานะ CPU, RAM, Disk, Network และความปลอดภัยของเซิร์ฟเวอร์
-3. อ่าน/แก้ไขโค้ดโปรเจกต์ รันการทดสอบ จัดการไฟล์ .env และสั่ง Git commit / push
-4. สั่ง Rebuild หรือ Deploy แอปพลิเคชันผ่าน Coolify
-5. สื่อสารกับผู้ใช้งาน (Admin Jotaki - iamjotaki@gmail.com) ด้วยภาษาไทยที่เป็นมิตร ชัดเจน ตรงประเด็น
-6. เมื่อมีการเรียกใช้ Tool ให้อธิบายผลลัพธ์และสิ่งที่ทำอย่างเข้าใจง่าย"""
+2. หากผู้ใช้ต้องการ "สร้างโปรเจกต์ใหม่ทั้งระบบ" (เช่น สร้าง SaaS ตัวใหม่ remove.thaid.online จากศูนย์):
+   - ให้อธิบาย Roadmap และสถาปัตยกรรม (Architecture Plan) ให้ชัดเจน: Frontend (Next.js), AI Engine/API, และการเชื่อมต่อ Google SSO
+   - อธิบายว่า Agent คอนโซลนี้ทำหน้าที่เป็น DevOps Engineer บนคลาวด์ ดูแล Docker/Coolify และสามารถสร้างโปรเจกต์ในระบบได้ ส่วนการพัฒนาโค้ดไฟล์จำนวนมากตั้งแต่เริ่มต้น สามารถทำได้สะดวกที่สุดผ่าน Antigravity IDE (Local Pair Programming) เพื่อ Push ขึ้น GitHub แล้วส่งต่อให้ Agent บนนี้สั่ง Deploy สู่ระบบจริง
+   - อย่าวนลูปใช้คำสั่งค้นหาไฟล์ซ้ำๆ โดยไม่มีเป้าหมายชัดเจน
+3. เมื่อรันคำสั่ง Tool เสร็จแล้ว ต้องสรุปและตอบกลับผู้ใช้เสมอ ห้ามเงียบหายหรือจบเทิร์นโดยไม่มีข้อความอธิบาย"""
 
 async def run_agent_turn(
     messages: List[Dict[str, Any]],
@@ -565,4 +565,23 @@ async def run_agent_turn(
             "parts": tool_response_parts
         })
 
-    yield {"type": "done", "status": "max_iterations_reached"}
+    # If maximum tool iterations reached, force a final synthesis turn to explain results to the user
+    summary_payload = {
+        "system_instruction": {"parts": [{"text": system_inst}]},
+        "contents": current_contents + [{
+            "role": "user",
+            "parts": [{"text": "โปรดสรุปผลการทำงานทั้งหมดข้างต้น อธิบายสิ่งที่ได้ตรวจสอบหรือทำไปแล้ว และแนะนำขั้นตอนต่อไปให้ Admin Jotaki ทราบอย่างชัดเจนและครบถ้วน"}]
+        }],
+        "generation_config": {"temperature": 0.4, "max_output_tokens": 2048}
+    }
+    try:
+        final_data = await call_gemini_api(summary_payload)
+        cands = final_data.get("candidates", [])
+        if cands:
+            txt = "".join(p["text"] for p in cands[0].get("content", {}).get("parts", []) if "text" in p)
+            if txt:
+                yield {"type": "text", "content": txt}
+    except Exception:
+        pass
+
+    yield {"type": "done", "status": "finished"}
