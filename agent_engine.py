@@ -313,15 +313,15 @@ def execute_tool(name: str, args: Dict[str, Any], working_dir: str = "/") -> str
 # 3. CORE AI CALL WITH AUTOMATIC KEY ROTATION & RETRY
 # ----------------------------------------------------
 async def call_gemini_api(payload: Dict[str, Any], max_attempts: int = 5) -> Dict[str, Any]:
+    # Prioritize fast, production-ready Gemini models
     candidate_models = [
-        "models/gemini-3.8-flash",
-        "models/gemini-3.5-flash",
         "models/gemini-3-flash-preview",
-        "models/gemini-3.5-flash-lite"
+        "models/gemini-3.5-flash",
+        "models/gemini-3.8-flash"
     ]
     last_err = ""
 
-    async with httpx.AsyncClient(timeout=45.0) as client:
+    async with httpx.AsyncClient(timeout=25.0) as client:
         for attempt in range(max_attempts):
             api_key = key_pool.get_key()
             if not api_key:
@@ -340,14 +340,15 @@ async def call_gemini_api(payload: Dict[str, Any], max_attempts: int = 5) -> Dic
                         break # Try next key in outer loop
                     elif resp.status_code == 503:
                         last_err = f"{mod} 503 High Demand"
-                        await asyncio.sleep(0.8)
+                        await asyncio.sleep(0.5)
+                        continue
                     else:
-                        last_err = f"HTTP {resp.status_code}: {resp.text[:300]}"
-                        break
+                        last_err = f"{mod} HTTP {resp.status_code}: {resp.text[:200]}"
+                        continue
                 except Exception as ex:
-                    last_err = str(ex)
-                    break
-            await asyncio.sleep(0.5)
+                    last_err = f"{mod} {type(ex).__name__}: {str(ex)}"
+                    continue
+            await asyncio.sleep(0.3)
 
     raise RuntimeError(f"All AI API attempts failed. Last error: {last_err}")
 
@@ -416,6 +417,8 @@ async def run_agent_turn(
         "total_keys": pool_stat["total_keys"]
     }
 
+    active_prompt = user_prompt
+
     # MODE A: MULTI-AGENT COLLABORATION TEAM
     if agent_mode == "team":
         # 1. PLANNER AGENT
@@ -428,7 +431,7 @@ async def run_agent_turn(
         planner_payload = {
             "system_instruction": {"parts": [{"text": planner_instruction}]},
             "contents": list(messages) + [{"role": "user", "parts": [{"text": user_prompt}]}],
-            "generation_config": {"temperature": 0.3, "max_output_tokens": 2048}
+            "generation_config": {"temperature": 0.3, "max_output_tokens": 1024}
         }
         try:
             p_data = await call_gemini_api(planner_payload)
@@ -442,6 +445,8 @@ async def run_agent_turn(
                 "type": "plan_ready",
                 "plan": plan_text
             }
+            if plan_text:
+                active_prompt = f"{user_prompt}\n\n[Action Plan]:\n{plan_text}\n\nกรุณาลงมือปฏิบัติตามขั้นตอนข้างต้นทันที"
         except Exception as e:
             yield {"type": "error", "content": f"Planner Error: {str(e)}"}
             return
@@ -457,7 +462,7 @@ async def run_agent_turn(
     current_contents = list(messages)
     current_contents.append({
         "role": "user",
-        "parts": [{"text": user_prompt}]
+        "parts": [{"text": active_prompt}]
     })
 
     system_inst = build_system_instruction(project_info, agent_role="fullstack")
