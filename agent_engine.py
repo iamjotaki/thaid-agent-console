@@ -394,9 +394,27 @@ def build_system_instruction(project_info: Optional[Dict[str, Any]] = None, agen
 1. มุ่งเน้นผลลัพธ์ที่จับต้องได้ รวดเร็ว และเป็นขั้นตอน (Action-Oriented):
    - ห้ามวนรันคำสั่งสำรวจโฟลเดอร์กว้างๆ ซ้ำๆ (เช่น `ls /root`, `ls /home`, `whoami`) โดยไม่มีความจำเป็น
    - เมื่อผู้ใช้สั่งสร้างโปรเจกต์ใหม่ หรือเพิ่มฟีเจอร์ ให้ลงมือสร้างโฟลเดอร์ปลายทาง เขียนไฟล์โค้ด (write_file), คอนฟิก หรือ Dockerfile ทันทีอย่างมีระเบียบ
-2. การบริหารจัดการ Docker & คลาวด์:
+2. การบริหารจัดการ Docker & Traefik Routing Doctrine:
    - ควบคุม Docker Containers ของทุกบริการในระบบ ThaiD ได้โดยตรง
-   - เมื่อต้องการรันคอนเทนเนอร์ใหม่ ให้เชื่อมต่อ network 'coolify' และตั้ง Traefik labels เพื่อให้โดเมนย่อยเปิดใช้งาน SSL ได้อัตโนมัติ
+   - เมื่อต้องการรันคอนเทนเนอร์ใหม่ ให้เชื่อมต่อ network 'coolify' (external: true)
+   - กฎเหล็ก Traefik Labels ประจำระบบ ThaiD:
+     * ห้ามใช้ entrypoints 'web' หรือ 'websecure' เด็ดขาด! บนระบบนี้ชื่อคือ 'http' และ 'https'
+     * ตัวอย่าง Labels มาตรฐานที่ถูกต้องเสมอ:
+       - "traefik.enable=true"
+       - "traefik.docker.network=coolify"
+       - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+       - "traefik.http.routers.http-<app>.entryPoints=http"
+       - "traefik.http.routers.http-<app>.middlewares=redirect-to-https"
+       - "traefik.http.routers.http-<app>.rule=Host(`<subdomain>.thaid.online`)"
+       - "traefik.http.routers.https-<app>.entryPoints=https"
+       - "traefik.http.routers.https-<app>.rule=Host(`<subdomain>.thaid.online`)"
+       - "traefik.http.routers.https-<app>.tls=true"
+       - "traefik.http.routers.https-<app>.tls.certresolver=letsencrypt"
+       - "traefik.http.services.https-<app>.loadbalancer.server.port=<port>"
+   - สำหรับ FastAPI / Starlette:
+     * คำสั่ง TemplateResponse ต้องใช้ keyword arguments เสมอ:
+       `templates.TemplateResponse(request=request, name="index.html", context={...})`
+       (ห้ามส่ง positional `templates.TemplateResponse("index.html", {...})` เพราะจะติด TypeError: unhashable type: 'dict')
 3. การตอบกลับและสรุปงาน:
    - สรุปผลการทำงานให้ชัดเจนเสมอว่าได้สร้างไฟล์อะไร รันคอนเทนเนอร์อะไร หรือเกิดปัญหาใด
    - แสดง URL โดเมนที่เข้าใช้งานได้ หรือคำสั่งถัดไปให้ผู้ใช้เสมอ ห้ามจบเทิร์นโดยไม่สรุปข้อความ"""
