@@ -96,10 +96,9 @@ async def home(request: Request):
     
     # Only allow Super Admin
     if user["email"] != SUPER_ADMIN_EMAIL and user.get("role") != "superadmin":
-        return templates.TemplateResponse("access_denied.html", {"request": request, "user": user})
+        return templates.TemplateResponse(request=request, name="access_denied.html", context={"user": user})
 
-    return templates.TemplateResponse("index.html", {
-        "request": request,
+    return templates.TemplateResponse(request=request, name="index.html", context={
         "user": user,
         "super_admin_email": SUPER_ADMIN_EMAIL
     })
@@ -109,7 +108,7 @@ async def login_page(request: Request):
     user = get_current_user(request)
     if user and user["email"] == SUPER_ADMIN_EMAIL:
         return RedirectResponse("/")
-    return templates.TemplateResponse("login.html", {"request": request})
+    return templates.TemplateResponse(request=request, name="login.html", context={})
 
 @app.get("/api/auth/me")
 async def api_me(request: Request):
