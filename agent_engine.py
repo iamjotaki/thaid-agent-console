@@ -322,13 +322,13 @@ def execute_tool(name: str, args: Dict[str, Any], working_dir: str = "/") -> str
 async def call_gemini_api(payload: Dict[str, Any], max_attempts: int = 5) -> Dict[str, Any]:
     # Prioritize fast, production-ready Gemini models
     candidate_models = [
-        "models/gemini-3-flash-preview",
         "models/gemini-3.5-flash",
-        "models/gemini-3.8-flash"
+        "models/gemini-3.8-flash",
+        "models/gemini-3-flash-preview"
     ]
     last_err = ""
 
-    async with httpx.AsyncClient(timeout=25.0) as client:
+    async with httpx.AsyncClient(timeout=30.0) as client:
         for attempt in range(max_attempts):
             api_key = key_pool.get_key()
             if not api_key:
@@ -341,10 +341,8 @@ async def call_gemini_api(payload: Dict[str, Any], max_attempts: int = 5) -> Dic
                     if resp.status_code == 200:
                         return resp.json()
                     elif resp.status_code == 429:
-                        # Rate limit reached on this key, mark cooloff and rotate
-                        key_pool.report_rate_limit(api_key, cooldown_seconds=60.0)
-                        last_err = f"Key {api_key[:10]}... rate limited (429). Rotating to next pool key."
-                        break # Try next key in outer loop
+                        last_err = f"{mod} on key {api_key[:10]}... rate limited (429)."
+                        continue
                     elif resp.status_code == 503:
                         last_err = f"{mod} 503 High Demand"
                         await asyncio.sleep(0.5)
@@ -355,6 +353,9 @@ async def call_gemini_api(payload: Dict[str, Any], max_attempts: int = 5) -> Dic
                 except Exception as ex:
                     last_err = f"{mod} {type(ex).__name__}: {str(ex)}"
                     continue
+
+            # If all candidate models failed on this key, report cooloff and rotate
+            key_pool.report_rate_limit(api_key, cooldown_seconds=60.0)
             await asyncio.sleep(0.3)
 
     raise RuntimeError(f"All AI API attempts failed. Last error: {last_err}")
