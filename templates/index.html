@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="th" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ThaiD Antigravity Agent · Remote DevOps Web Console</title>
+    <link rel="icon" href="https://thaid.online/favicon.ico">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600;700&family=Noto+Sans+Thai:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Google Sans', 'Noto Sans Thai', '-apple-system', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        thaid: {
+                            blue: '#0569ff',
+                            dark: '#171717',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- FontAwesome & Marked & Highlight.js -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
+    <style>
+        body { font-family: 'Google Sans', 'Noto Sans Thai', sans-serif; }
+        .code-block pre { background: #18181b; border-radius: 1rem; padding: 1rem; overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; }
+        .typing-indicator span { animation: blink 1.4s infinite both; }
+        .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes blink { 0% { opacity: 0.2; } 20% { opacity: 1; } 100% { opacity: 0.2; } }
+        /* Custom scrollbars */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(150, 150, 150, 0.25); border-radius: 9999px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(150, 150, 150, 0.45); }
+    </style>
+</head>
+<body class="bg-[#f8fafc] dark:bg-[#0f1117] text-stone-900 dark:text-stone-100 h-full flex flex-col antialiased selection:bg-blue-500 selection:text-white">
+
+    <!-- 1. THAID FLOATING TOP NAVBAR -->
+    <header class="sticky top-0 z-40 bg-white/80 dark:bg-stone-900/80 backdrop-blur-xl border-b border-black/[0.06] dark:border-white/[0.08] px-3 sm:px-6 py-2.5">
+        <div class="max-w-7xl mx-auto flex items-center justify-between gap-3">
+            
+            <!-- Zone 1: Left Brand -->
+            <div class="flex items-center gap-3">
+                <a href="https://thaid.online" class="flex items-center gap-2 group">
+                    <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-[#171717] to-[#2b313b] text-white flex items-center justify-center font-bold text-sm shadow-sm group-hover:scale-105 transition-transform">
+                        T♭
+                    </div>
+                    <div class="leading-none">
+                        <span class="font-bold text-base tracking-tight text-stone-900 dark:text-stone-100">ThaiD</span>
+                        <span class="text-xs text-stone-400 font-medium ml-1">/ Agent Console</span>
+                    </div>
+                </a>
+
+                <!-- Live Agent Status Badge -->
+                <div class="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[11px] font-semibold">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span>Antigravity Online</span>
+                </div>
+            </div>
+
+            <!-- Zone 2: SaaS Dropdown & Super Admin Profile -->
+            <div class="flex items-center gap-2">
+                
+                <!-- SaaS Selector -->
+                <div class="relative" id="thaidSaasDropdownWrap">
+                    <button type="button" onclick="toggleMenu('thaidSaasMenu')" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-black/[0.08] dark:border-white/10 bg-white/90 dark:bg-stone-800 hover:bg-stone-50 text-xs font-semibold text-stone-700 dark:text-stone-200 transition shadow-2xs cursor-pointer">
+                        <span class="text-[#0569ff] font-bold text-xs">✦</span>
+                        <span class="hidden sm:inline">เลือกบริการ SaaS</span>
+                        <i class="fa-solid fa-chevron-down text-[9px] text-stone-400"></i>
+                    </button>
+
+                    <!-- SaaS Dropdown Menu -->
+                    <div id="thaidSaasMenu" class="hidden absolute right-0 top-full mt-2 w-72 bg-white dark:bg-stone-900 rounded-2xl shadow-2xl border border-black/[0.08] dark:border-white/10 p-2 z-50 text-left">
+                        <div class="px-3 py-1.5 text-[10px] font-bold text-stone-400 uppercase tracking-wider border-b border-black/[0.05] dark:border-white/[0.05] mb-1 flex items-center justify-between">
+                            <span>ThaiD SaaS Ecosystem</span>
+                            <span class="text-emerald-600 font-semibold">8 แอปพลิเคชัน</span>
+                        </div>
+                        <div class="grid grid-cols-1 gap-1 max-h-[360px] overflow-y-auto">
+                            <a href="https://novel.thaid.online" class="p-2 rounded-xl hover:bg-stone-100 dark:hover:bg-stone-800 flex items-center justify-between text-xs font-semibold text-stone-800 dark:text-stone-200">
+                                <span>📚 Novel Studio</span><span class="text-[10px] text-stone-400">แต่งนิยาย AI</span>
+                            </a>
+                            <a href="https://social.thaid.online" class="p-2 rounded-xl hover:bg-stone-100 dark:hover:bg-stone-800 flex items-center justify-between text-xs font-semibold text-stone-800 dark:text-stone-200">
+                                <span>📢 Social Poster</span><span class="text-[10px] text-stone-400">โพสต์ FB 24h</span>
+                            </a>
+                            <a href="https://vault.thaid.online" class="p-2 rounded-xl hover:bg-stone-100 dark:hover:bg-stone-800 flex items-center justify-between text-xs font-semibold text-stone-800 dark:text-stone-200">
+                                <span>🔐 Vault Storage</span><span class="text-[10px] text-stone-400">คลาวด์ปลอดภัย</span>
+                            </a>
+                            <a href="https://sticker.thaid.online" class="p-2 rounded-xl hover:bg-stone-100 dark:hover:bg-stone-800 flex items-center justify-between text-xs font-semibold text-stone-800 dark:text-stone-200">
+                                <span>🎨 Sticker Studio</span><span class="text-[10px] text-stone-400">สติกเกอร์ LINE</span>
+                            </a>
+                            <a href="https://clip.thaid.online" class="p-2 rounded-xl hover:bg-stone-100 dark:hover:bg-stone-800 flex items-center justify-between text-xs font-semibold text-stone-800 dark:text-stone-200">
+                                <span>🎬 Clip AI Shorts</span><span class="text-[10px] text-stone-400">คลิปสั้น 9:16</span>
+                            </a>
+                            <a href="https://chat.thaid.online" class="p-2 rounded-xl hover:bg-stone-100 dark:hover:bg-stone-800 flex items-center justify-between text-xs font-semibold text-stone-800 dark:text-stone-200">
+                                <span>💬 Smart Chat AI</span><span class="text-[10px] text-stone-400">บอทแอดมิน LINE</span>
+                            </a>
+                            <a href="https://mockup.thaid.online" class="p-2 rounded-xl hover:bg-stone-100 dark:hover:bg-stone-800 flex items-center justify-between text-xs font-semibold text-stone-800 dark:text-stone-200">
+                                <span>📸 Mockup Studio</span><span class="text-[10px] text-stone-400">ภาพสินค้า 4K</span>
+                            </a>
+                            <a href="https://agent.thaid.online" class="p-2 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-[#0569ff] flex items-center justify-between text-xs font-bold">
+                                <span>⚡ Agent Console</span><span class="text-[10px] text-[#0569ff]">DevOps AI</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- User Profile Pill (Standard Initial Avatar 'J') -->
+                <div class="relative">
+                    <button type="button" onclick="toggleMenu('thaidProfileMenu')" class="flex items-center gap-1.5 p-1 pl-1 pr-2.5 rounded-full border border-black/[0.08] dark:border-white/10 hover:border-[#0569ff] transition bg-white dark:bg-stone-800 shadow-2xs cursor-pointer group">
+                        <div class="w-6 h-6 rounded-full bg-[#004bb5] text-white flex items-center justify-center font-bold text-xs shrink-0 select-none">
+                            J
+                        </div>
+                        <span class="text-xs font-semibold text-stone-800 dark:text-stone-200 hidden sm:inline max-w-[80px] truncate">
+                            {{ user.name or 'Jotaki' }}
+                        </span>
+                        <i class="fa-solid fa-chevron-down text-[9px] text-stone-400"></i>
+                    </button>
+
+                    <!-- Standard ThaiD Unified Profile Dropdown -->
+                    <div id="thaidProfileMenu" class="hidden absolute right-0 top-full mt-2 w-64 bg-white dark:bg-stone-900 border border-black/[0.08] dark:border-white/10 rounded-2xl shadow-2xl p-3 z-50 text-left">
+                        <div class="flex items-center gap-2.5 pb-2.5 border-b border-black/[0.06] dark:border-white/[0.06]">
+                            <div class="w-10 h-10 rounded-full bg-[#004bb5] text-white flex items-center justify-center font-bold text-base shrink-0 select-none">
+                                J
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="text-xs font-bold text-stone-900 dark:text-stone-100 truncate">{{ user.name or 'Jotaki' }}</div>
+                                <div class="text-[10px] text-stone-400 truncate">{{ user.email }}</div>
+                            </div>
+                        </div>
+
+                        <div class="py-2 text-[11px] space-y-1">
+                            <div class="flex items-center justify-between px-2 py-1.5 rounded-xl bg-stone-50 dark:bg-stone-800 border border-black/[0.04] mb-2">
+                                <span class="text-stone-500">สถานะ:</span>
+                                <span class="px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/50 text-purple-800 dark:text-purple-300 font-bold text-[10px] border border-purple-200/50">👑 Super Admin (All Access)</span>
+                            </div>
+
+                            <a href="https://thaid.online/admin" target="_blank" class="flex items-center justify-between px-2.5 py-2 rounded-xl bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/40 text-purple-900 dark:text-purple-200 font-semibold text-xs transition border border-purple-200/60 mb-2">
+                                <span class="flex items-center gap-1.5">
+                                    <span>⚙️</span>
+                                    <span>ศูนย์กลางแอดมิน (Central Admin)</span>
+                                </span>
+                                <span class="text-[10px] text-purple-600">→</span>
+                            </a>
+
+                            <div class="px-1 text-[10px] uppercase font-bold text-stone-400 tracking-wider">
+                                บริการที่คุณสมัครใช้งานแล้ว
+                            </div>
+                            <div class="space-y-0.5">
+                                <a href="https://novel.thaid.online" class="flex items-center justify-between px-2 py-1 rounded-lg hover:bg-stone-50 text-stone-700 dark:text-stone-300 text-xs">
+                                    <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Novel Studio</span><span class="text-[10px] text-stone-400">→</span>
+                                </a>
+                                <a href="https://social.thaid.online/dashboard" class="flex items-center justify-between px-2 py-1 rounded-lg hover:bg-stone-50 text-stone-700 dark:text-stone-300 text-xs">
+                                    <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Social Poster</span><span class="text-[10px] text-stone-400">→</span>
+                                </a>
+                                <a href="https://clip.thaid.online" class="flex items-center justify-between px-2 py-1 rounded-lg hover:bg-stone-50 text-stone-700 dark:text-stone-300 text-xs">
+                                    <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Clip AI Shorts</span><span class="text-[10px] text-stone-400">→</span>
+                                </a>
+                            </div>
+                        </div>
+
+                        <button type="button" onclick="logout()" class="w-full mt-1 pt-2 border-t border-black/[0.06] dark:border-white/[0.06] text-left text-xs font-semibold text-rose-600 hover:text-rose-700 flex items-center justify-between px-2 py-1 rounded-lg hover:bg-rose-50/50 cursor-pointer">
+                            <span>ออกจากระบบ</span>
+                            <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+    </header>
+
+    <!-- 2. MAIN LAYOUT: SIDEBAR + CHAT CANVAS -->
+    <div class="flex-1 flex overflow-hidden max-w-7xl w-full mx-auto p-2 sm:p-4 gap-4">
+
+        <!-- LEFT SIDEBAR: QUICK CONTROLS & SYSTEM METRICS -->
+        <aside class="hidden lg:flex flex-col w-72 shrink-0 bg-white dark:bg-stone-900 border border-black/[0.06] dark:border-white/[0.08] rounded-3xl p-4 shadow-xs space-y-5 overflow-y-auto">
+            
+            <!-- Server Status Card -->
+            <div>
+                <div class="text-[11px] font-bold uppercase tracking-wider text-stone-400 mb-2 flex items-center justify-between">
+                    <span>Host Status</span>
+                    <button onclick="refreshMetrics()" class="text-blue-500 hover:underline text-[10px] cursor-pointer"><i class="fa-solid fa-arrows-rotate"></i> รีเฟรช</button>
+                </div>
+                
+                <div class="bg-stone-50 dark:bg-stone-800/60 rounded-2xl p-3 border border-black/[0.04] space-y-2.5">
+                    <!-- CPU -->
+                    <div>
+                        <div class="flex items-center justify-between text-xs font-medium mb-1">
+                            <span class="text-stone-500">CPU Usage</span>
+                            <span id="metric-cpu" class="font-bold text-stone-800 dark:text-stone-200">--%</span>
+                        </div>
+                        <div class="w-full h-1.5 bg-stone-200 dark:bg-stone-700 rounded-full overflow-hidden">
+                            <div id="metric-cpu-bar" class="h-full bg-blue-500 rounded-full transition-all duration-300" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <!-- RAM -->
+                    <div>
+                        <div class="flex items-center justify-between text-xs font-medium mb-1">
+                            <span class="text-stone-500">RAM (Memory)</span>
+                            <span id="metric-ram" class="font-bold text-stone-800 dark:text-stone-200">-- GB</span>
+                        </div>
+                        <div class="w-full h-1.5 bg-stone-200 dark:bg-stone-700 rounded-full overflow-hidden">
+                            <div id="metric-ram-bar" class="h-full bg-purple-500 rounded-full transition-all duration-300" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <!-- Disk -->
+                    <div>
+                        <div class="flex items-center justify-between text-xs font-medium mb-1">
+                            <span class="text-stone-500">Disk Space</span>
+                            <span id="metric-disk" class="font-bold text-stone-800 dark:text-stone-200">-- GB</span>
+                        </div>
+                        <div class="w-full h-1.5 bg-stone-200 dark:bg-stone-700 rounded-full overflow-hidden">
+                            <div id="metric-disk-bar" class="h-full bg-emerald-500 rounded-full transition-all duration-300" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick DevOps Actions -->
+            <div>
+                <div class="text-[11px] font-bold uppercase tracking-wider text-stone-400 mb-2">
+                    Quick Commands
+                </div>
+                <div class="grid grid-cols-1 gap-1.5">
+                    <button onclick="runQuickAction('docker_status', 'ตรวจสถานะ Docker Containers')" class="flex items-center justify-between px-3 py-2.5 rounded-xl bg-stone-50 hover:bg-stone-100 dark:bg-stone-800/60 dark:hover:bg-stone-800 text-xs font-semibold text-stone-800 dark:text-stone-200 transition text-left cursor-pointer border border-black/[0.04]">
+                        <span class="flex items-center gap-2">
+                            <i class="fa-brands fa-docker text-blue-500"></i>
+                            <span>Docker Containers</span>
+                        </span>
+                        <i class="fa-solid fa-play text-[10px] text-stone-400"></i>
+                    </button>
+
+                    <button onclick="runQuickAction('coolify_status', 'ดูสถานะแอปทั้งหมดใน Coolify')" class="flex items-center justify-between px-3 py-2.5 rounded-xl bg-stone-50 hover:bg-stone-100 dark:bg-stone-800/60 dark:hover:bg-stone-800 text-xs font-semibold text-stone-800 dark:text-stone-200 transition text-left cursor-pointer border border-black/[0.04]">
+                        <span class="flex items-center gap-2">
+                            <i class="fa-solid fa-cloud text-purple-500"></i>
+                            <span>สถานะ Coolify Apps</span>
+                        </span>
+                        <i class="fa-solid fa-play text-[10px] text-stone-400"></i>
+                    </button>
+
+                    <button onclick="runQuickAction('coolify_deploy_all', 'Deploy ทุกแอพในระบบ (Rebuild)')" class="flex items-center justify-between px-3 py-2.5 rounded-xl bg-stone-50 hover:bg-stone-100 dark:bg-stone-800/60 dark:hover:bg-stone-800 text-xs font-semibold text-stone-800 dark:text-stone-200 transition text-left cursor-pointer border border-black/[0.04]">
+                        <span class="flex items-center gap-2">
+                            <i class="fa-solid fa-rocket text-rose-500"></i>
+                            <span>Deploy All 8 Apps</span>
+                        </span>
+                        <i class="fa-solid fa-play text-[10px] text-stone-400"></i>
+                    </button>
+
+                    <button onclick="runQuickAction('disk_cleanup', 'เคลียร์ Docker Cache ที่ไม่ได้ใช้')" class="flex items-center justify-between px-3 py-2.5 rounded-xl bg-stone-50 hover:bg-stone-100 dark:bg-stone-800/60 dark:hover:bg-stone-800 text-xs font-semibold text-stone-800 dark:text-stone-200 transition text-left cursor-pointer border border-black/[0.04]">
+                        <span class="flex items-center gap-2">
+                            <i class="fa-solid fa-broom text-amber-500"></i>
+                            <span>Prune Docker Cache</span>
+                        </span>
+                        <i class="fa-solid fa-play text-[10px] text-stone-400"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Server Environment Note -->
+            <div class="mt-auto pt-3 border-t border-black/[0.06] dark:border-white/[0.06] text-[11px] text-stone-400 space-y-1">
+                <div>Host: <span class="font-mono text-stone-600 dark:text-stone-300">129.221.170.225</span></div>
+                <div>OS: <span class="font-medium text-stone-600 dark:text-stone-300">Ubuntu 24.04 (Oracle Cloud)</span></div>
+                <div>Agent: <span class="text-emerald-500 font-semibold">Gemini 3.8 Flash Engine</span></div>
+            </div>
+        </aside>
+
+        <!-- CENTER CHAT CANVAS -->
+        <main class="flex-1 flex flex-col bg-white dark:bg-stone-900 border border-black/[0.06] dark:border-white/[0.08] rounded-3xl shadow-xs overflow-hidden relative">
+            
+            <!-- Chat Messages Container -->
+            <div id="chat-messages" class="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5">
+                
+                <!-- Welcome Banner -->
+                <div class="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50/50 dark:from-stone-800/80 dark:to-stone-800/40 border border-blue-100 dark:border-stone-700/60 flex items-start gap-4">
+                    <div class="w-10 h-10 rounded-2xl bg-[#0569ff] text-white flex items-center justify-center font-bold text-lg shrink-0 shadow-md">
+                        ⚡
+                    </div>
+                    <div>
+                        <h2 class="text-sm font-bold text-stone-900 dark:text-stone-100">ThaiD Antigravity Agent ยินดีต้อนรับครับ Admin Jotaki!</h2>
+                        <p class="text-xs text-stone-600 dark:text-stone-400 mt-1 leading-relaxed">
+                            ระบบพร้อมรับคำสั่งควบคุมเซิร์ฟเวอร์, ตรวจสอบ Docker, รันคำสั่ง Shell, หรือเขียนและแก้ไขโค้ดโปรเจกต์ทั้ง 8 บริการในระบบ คุณสามารถสั่งงานด้วยภาษาไทยผ่านช่องแชทด้านล่าง หรือแตะปุ่มคำสั่งด่วนได้เลยครับ
+                        </p>
+                        
+                        <!-- Quick Prompts Chips -->
+                        <div class="flex flex-wrap gap-1.5 mt-3">
+                            <button onclick="sendPrompt('ตรวจเช็คสถานะเซิร์ฟเวอร์และการทำงานของ Docker ตอนนี้')" class="px-2.5 py-1 rounded-full bg-white dark:bg-stone-900 border border-black/[0.08] dark:border-white/10 text-xs font-semibold hover:border-blue-500 text-stone-700 dark:text-stone-300 transition cursor-pointer">
+                                ⚡ ตรวจสถานะเซิร์ฟเวอร์
+                            </button>
+                            <button onclick="sendPrompt('มี Container ตัวไหนที่ Restart หรือมี Error เกิดขึ้นไหม')" class="px-2.5 py-1 rounded-full bg-white dark:bg-stone-900 border border-black/[0.08] dark:border-white/10 text-xs font-semibold hover:border-blue-500 text-stone-700 dark:text-stone-300 transition cursor-pointer">
+                                🔍 เช็ค Error Containers
+                            </button>
+                            <button onclick="sendPrompt('สรุปรายการแอปใน Coolify และ FQDN ของแต่ละบริการ')" class="px-2.5 py-1 rounded-full bg-white dark:bg-stone-900 border border-black/[0.08] dark:border-white/10 text-xs font-semibold hover:border-blue-500 text-stone-700 dark:text-stone-300 transition cursor-pointer">
+                                📋 รายการ Coolify Apps
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Typing / Tool In-Progress Bar (Hidden by default) -->
+            <div id="agent-status-bar" class="hidden px-4 py-2 border-t border-black/[0.04] bg-stone-50 dark:bg-stone-800/40 text-xs text-stone-500 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-blue-500 animate-ping"></span>
+                    <span id="agent-status-text" class="font-medium text-stone-700 dark:text-stone-300">Agent กำลังประมวลผล...</span>
+                </div>
+                <div class="typing-indicator flex items-center gap-1">
+                    <span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                    <span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                    <span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                </div>
+            </div>
+
+            <!-- Input Bar -->
+            <div class="p-3 sm:p-4 border-t border-black/[0.06] dark:border-white/[0.08] bg-white/95 dark:bg-stone-900/95 backdrop-blur-md">
+                <form id="chat-form" onsubmit="handleSubmit(event)" class="relative flex items-center gap-2">
+                    <textarea 
+                        id="prompt-input"
+                        rows="1"
+                        placeholder="สั่งงาน Antigravity Agent เช่น ตรวจเช็คสถานะเซิร์ฟเวอร์, ดู log, สั่ง deploy..."
+                        class="flex-1 bg-stone-50 dark:bg-stone-800 border border-black/[0.08] dark:border-white/10 rounded-2xl px-4 py-3 text-xs sm:text-sm text-stone-900 dark:text-white placeholder-stone-400 focus:outline-none focus:border-[#0569ff] resize-none max-h-32 transition"
+                        onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); handleSubmit(event); }"
+                    ></textarea>
+
+                    <button 
+                        type="submit" 
+                        id="btn-send"
+                        class="w-10 h-10 rounded-2xl bg-[#0569ff] hover:bg-blue-600 active:scale-95 text-white flex items-center justify-center font-bold text-sm shadow-md transition cursor-pointer shrink-0"
+                    >
+                        <i class="fa-solid fa-paper-plane text-xs"></i>
+                    </button>
+                </form>
+            </div>
+
+        </main>
+
+    </div>
+
+    <!-- 3. CLIENT SCRIPT -->
+    <script>
+        const chatContainer = document.getElementById('chat-messages');
+        const promptInput = document.getElementById('prompt-input');
+        const statusBar = document.getElementById('agent-status-bar');
+        const statusText = document.getElementById('agent-status-text');
+        const btnSend = document.getElementById('btn-send');
+
+        let chatHistory = [];
+        let isProcessing = false;
+
+        function toggleMenu(menuId) {
+            const menu = document.getElementById(menuId);
+            if (!menu) return;
+            menu.classList.toggle('hidden');
+        }
+
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('#thaidSaasDropdownWrap')) {
+                const m = document.getElementById('thaidSaasMenu');
+                if (m && !m.classList.contains('hidden')) m.classList.add('hidden');
+            }
+            if (!e.target.closest('#thaidProfileMenu') && !e.target.closest('button[onclick*="thaidProfileMenu"]')) {
+                const m = document.getElementById('thaidProfileMenu');
+                if (m && !m.classList.contains('hidden')) m.classList.add('hidden');
+            }
+        });
+
+        async function refreshMetrics() {
+            try {
+                const res = await fetch('/api/system/metrics');
+                if (!res.ok) return;
+                const d = await res.json();
+                
+                document.getElementById('metric-cpu').innerText = `${d.cpu_percent}%`;
+                document.getElementById('metric-cpu-bar').style.width = `${Math.min(d.cpu_percent, 100)}%`;
+
+                document.getElementById('metric-ram').innerText = `${d.memory_used_gb}/${d.memory_total_gb} GB (${d.memory_percent}%)`;
+                document.getElementById('metric-ram-bar').style.width = `${d.memory_percent}%`;
+
+                document.getElementById('metric-disk').innerText = `${d.disk_free_gb} GB ว่าง (${d.disk_percent}%)`;
+                document.getElementById('metric-disk-bar').style.width = `${d.disk_percent}%`;
+            } catch (e) {
+                console.error("Metric error:", e);
+            }
+        }
+        refreshMetrics();
+        setInterval(refreshMetrics, 15000);
+
+        function appendMessage(role, content) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `flex gap-3 ${role === 'user' ? 'justify-end' : 'justify-start'}`;
+
+            if (role === 'user') {
+                msgDiv.innerHTML = `
+                    <div class="max-w-[85%] sm:max-w-[75%] rounded-2xl rounded-tr-xs bg-[#0569ff] text-white px-4 py-2.5 text-xs sm:text-sm shadow-xs leading-relaxed">
+                        ${escapeHtml(content)}
+                    </div>
+                    <div class="w-8 h-8 rounded-full bg-[#004bb5] text-white flex items-center justify-center font-bold text-xs shrink-0 select-none shadow-xs">
+                        J
+                    </div>
+                `;
+            } else {
+                msgDiv.innerHTML = `
+                    <div class="w-8 h-8 rounded-2xl bg-stone-900 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-xs">
+                        ⚡
+                    </div>
+                    <div class="max-w-[90%] sm:max-w-[80%] rounded-2xl rounded-tl-xs bg-stone-100 dark:bg-stone-800 text-stone-900 dark:text-stone-100 px-4 py-3 text-xs sm:text-sm shadow-xs leading-relaxed code-block space-y-2">
+                        <div class="prose dark:prose-invert max-w-none text-xs sm:text-sm">
+                            ${marked.parse(content || '')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            chatContainer.appendChild(msgDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+            return msgDiv;
+        }
+
+        function escapeHtml(text) {
+            return text.replace(/[&<>"']/g, function(m) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m];
+            });
+        }
+
+        async function sendPrompt(text) {
+            if (isProcessing || !text.trim()) return;
+            isProcessing = true;
+            btnSend.disabled = true;
+
+            const prompt = text.trim();
+            promptInput.value = '';
+            appendMessage('user', prompt);
+
+            statusBar.classList.remove('hidden');
+            statusText.innerText = "Agent กำลังวิเคราะห์คำสั่ง...";
+
+            // Prepare bot container for streaming
+            const botMsgDiv = document.createElement('div');
+            botMsgDiv.className = "flex gap-3 justify-start";
+            botMsgDiv.innerHTML = `
+                <div class="w-8 h-8 rounded-2xl bg-stone-900 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-xs">
+                    ⚡
+                </div>
+                <div class="max-w-[90%] sm:max-w-[80%] rounded-2xl rounded-tl-xs bg-stone-100 dark:bg-stone-800 text-stone-900 dark:text-stone-100 px-4 py-3 text-xs sm:text-sm shadow-xs leading-relaxed code-block space-y-2">
+                    <div class="tool-logs space-y-1 mb-2"></div>
+                    <div class="bot-content prose dark:prose-invert max-w-none text-xs sm:text-sm"></div>
+                </div>
+            `;
+            chatContainer.appendChild(botMsgDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+
+            const toolLogs = botMsgDiv.querySelector('.tool-logs');
+            const botContent = botMsgDiv.querySelector('.bot-content');
+            let accumulatedText = "";
+
+            try {
+                const response = await fetch('/api/agent/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt: prompt, history: chatHistory })
+                });
+
+                if (!response.ok) {
+                    botContent.innerHTML = `<span class="text-rose-500">Error: ไม่สามารถเชื่อมต่อกับ Agent ได้ (${response.status})</span>`;
+                    return;
+                }
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder('utf-8');
+                let buffer = "";
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop(); // keep remainder
+
+                    for (const line of lines) {
+                        if (!line.startsWith('data: ')) continue;
+                        const jsonStr = line.substring(6).trim();
+                        if (!jsonStr) continue;
+
+                        try {
+                            const event = JSON.parse(jsonStr);
+
+                            if (event.type === 'text') {
+                                accumulatedText += event.content;
+                                botContent.innerHTML = marked.parse(accumulatedText);
+                                hljs.highlightAll();
+                            } else if (event.type === 'tool_start') {
+                                statusText.innerText = `กำลังรัน Tool: ${event.name}...`;
+                                const toolCard = document.createElement('div');
+                                toolCard.className = "p-2 rounded-xl bg-stone-200/70 dark:bg-stone-700/60 text-[11px] font-mono border border-black/[0.05] flex items-center justify-between";
+                                toolCard.id = `tool-${event.name}`;
+                                toolCard.innerHTML = `
+                                    <span class="flex items-center gap-1.5 text-blue-600 dark:text-blue-400 font-semibold">
+                                        <i class="fa-solid fa-gear fa-spin"></i>
+                                        <span>${event.name}</span>
+                                    </span>
+                                    <span class="text-stone-400 text-[10px]">Executing...</span>
+                                `;
+                                toolLogs.appendChild(toolCard);
+                            } else if (event.type === 'tool_result') {
+                                const toolCard = document.getElementById(`tool-${event.name}`);
+                                if (toolCard) {
+                                    toolCard.className = "p-2 rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 text-[11px] font-mono border border-emerald-500/20";
+                                    toolCard.innerHTML = `
+                                        <div class="flex items-center justify-between">
+                                            <span class="font-bold flex items-center gap-1.5">
+                                                <i class="fa-solid fa-check"></i> ${event.name} สำเร็จ
+                                            </span>
+                                            <span class="text-[9px] text-stone-400">Done</span>
+                                        </div>
+                                    `;
+                                }
+                            } else if (event.type === 'error') {
+                                botContent.innerHTML += `<div class="text-rose-500 mt-2 font-bold">${escapeHtml(event.content)}</div>`;
+                            }
+                            chatContainer.scrollTop = chatContainer.scrollHeight;
+                        } catch (e) {
+                            console.error("Parse error:", e);
+                        }
+                    }
+                }
+
+                // Append to history
+                chatHistory.push({ role: 'user', parts: [{ text: prompt }] });
+                chatHistory.push({ role: 'model', parts: [{ text: accumulatedText }] });
+
+            } catch (err) {
+                botContent.innerHTML += `<div class="text-rose-500">Network Error: ${err.message}</div>`;
+            } finally {
+                isProcessing = false;
+                btnSend.disabled = false;
+                statusBar.classList.add('hidden');
+                refreshMetrics();
+            }
+        }
+
+        async function runQuickAction(actionName, label) {
+            sendPrompt(`ช่วยดำเนินการ: ${label} ทันที`);
+        }
+
+        function handleSubmit(e) {
+            if (e) e.preventDefault();
+            sendPrompt(promptInput.value);
+        }
+
+        async function logout() {
+            await fetch('/api/auth/logout', { method: 'POST' });
+            window.location.href = 'https://thaid.online';
+        }
+    </script>
+</body>
+</html>
