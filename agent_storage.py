@@ -114,11 +114,26 @@ def create_project(name: str, icon: str = "🚀", description: str = "", working
     if not working_dir or working_dir == "/":
         working_dir = f"/var/www/{clean_slug}"
 
-    # Auto create directory on host
+    # Auto create directory & persist in /app/data/projects/<clean_slug>
     try:
-        os.makedirs(working_dir, exist_ok=True)
-    except Exception:
-        pass
+        persist_dir = f"/app/data/projects/{clean_slug}" if os.path.exists("/app/data") else f"/var/lib/coolify/agent_data/projects/{clean_slug}"
+        os.makedirs(persist_dir, exist_ok=True)
+        if working_dir.startswith("/var/www/"):
+            os.makedirs(os.path.dirname(working_dir), exist_ok=True)
+            if os.path.exists(working_dir) and not os.path.islink(working_dir):
+                try:
+                    os.rmdir(working_dir)
+                except Exception:
+                    pass
+            if not os.path.exists(working_dir):
+                try:
+                    os.symlink(persist_dir, working_dir)
+                except Exception:
+                    os.makedirs(working_dir, exist_ok=True)
+        else:
+            os.makedirs(working_dir, exist_ok=True)
+    except Exception as e:
+        print(f"Error creating dir for project {clean_slug}: {e}")
 
     now = int(time.time())
     with get_db() as conn:
