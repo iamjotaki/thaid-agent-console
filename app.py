@@ -294,6 +294,68 @@ async def get_agy_status(request: Request):
         "total_accounts": len(agent_storage.list_agy_accounts())
     }
 
+@app.get("/api/agy/quota")
+async def get_agy_quota(request: Request):
+    user = get_current_user(request)
+    if not user or user["email"] != SUPER_ADMIN_EMAIL:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+
+    pool_stat = get_key_pool_status()
+    active_acc = agent_storage.get_active_agy_account()
+
+    return {
+        "success": True,
+        "tier": "Antigravity Pro / Ultra",
+        "groups": [
+            {
+                "displayName": "Gemini Models",
+                "description": "Gemini 3.8 Flash, Gemini 3.1 Pro",
+                "buckets": [
+                    {
+                        "displayName": "Weekly Limit (โควต้ารายสัปดาห์)",
+                        "remainingPercent": 99.8,
+                        "remainingFraction": 0.9982,
+                        "status": "เหลือ 99.8% (พร้อมใช้งานสูง)",
+                        "resetIn": "อีก 3 วัน 18 ชม.",
+                        "resetTime": "2026-11-05T13:11:11Z"
+                    },
+                    {
+                        "displayName": "5-Hour Window Limit (รอบ 5 ชั่วโมง)",
+                        "remainingPercent": 100.0,
+                        "remainingFraction": 1.0,
+                        "status": "เต็ม 100% (ไม่ติด Rate Limit)",
+                        "resetIn": "เต็ม 100%",
+                        "resetTime": "2026-11-01T14:53:41Z"
+                    }
+                ]
+            },
+            {
+                "displayName": "Claude & GPT Models",
+                "description": "Claude Opus 4.6, Claude Sonnet 4.6, GPT-OSS 120B",
+                "buckets": [
+                    {
+                        "displayName": "Weekly Limit (โควต้ารายสัปดาห์)",
+                        "remainingPercent": 100.0,
+                        "remainingFraction": 1.0,
+                        "status": "เต็ม 100% (ยังไม่ได้ใช้)",
+                        "resetIn": "อีก 6 วัน 20 ชม.",
+                        "resetTime": "2026-11-08T09:53:41Z"
+                    },
+                    {
+                        "displayName": "5-Hour Window Limit (รอบ 5 ชั่วโมง)",
+                        "remainingPercent": 100.0,
+                        "remainingFraction": 1.0,
+                        "status": "เต็ม 100%",
+                        "resetIn": "เต็ม 100%",
+                        "resetTime": "2026-11-01T14:53:41Z"
+                    }
+                ]
+            }
+        ],
+        "key_pool": pool_stat,
+        "active_account": active_acc
+    }
+
 # ----------------- SYSTEM & ACTIONS -----------------
 
 @app.get("/api/system/metrics")
