@@ -305,73 +305,73 @@ async def run_agent_turn(
 
         candidates = data.get("candidates", []) if isinstance(data, dict) else (data[0].get("candidates", []) if data else [])
 
-            if not candidates:
-                yield {"type": "error", "content": "No response from AI model"}
-                return
+        if not candidates:
+            yield {"type": "error", "content": "No response from AI model"}
+            return
 
-            candidate = candidates[0]
-            content = candidate.get("content", {})
-            parts = content.get("parts", [])
+        candidate = candidates[0]
+        content = candidate.get("content", {})
+        parts = content.get("parts", [])
 
-            tool_calls = []
-            text_blocks = []
+        tool_calls = []
+        text_blocks = []
 
-            for p in parts:
-                if "text" in p and p["text"]:
-                    text_blocks.append(p["text"])
-                if "functionCall" in p:
-                    tool_calls.append(p["functionCall"])
+        for p in parts:
+            if "text" in p and p["text"]:
+                text_blocks.append(p["text"])
+            if "functionCall" in p:
+                tool_calls.append(p["functionCall"])
 
-            # If model generated text, stream it
-            if text_blocks:
-                full_text = "".join(text_blocks)
-                yield {"type": "text", "content": full_text}
+        # If model generated text, stream it
+        if text_blocks:
+            full_text = "".join(text_blocks)
+            yield {"type": "text", "content": full_text}
 
-            # If no tool calls, turn is finished!
-            if not tool_calls:
-                yield {"type": "done", "status": "finished"}
-                return
+        # If no tool calls, turn is finished!
+        if not tool_calls:
+            yield {"type": "done", "status": "finished"}
+            return
 
-            # Append model's response to message history
-            current_contents.append({
-                "role": "model",
-                "parts": parts
-            })
+        # Append model's response to message history
+        current_contents.append({
+            "role": "model",
+            "parts": parts
+        })
 
-            # Execute tool calls
-            tool_response_parts = []
-            for tc in tool_calls:
-                fn_name = tc.get("name")
-                fn_args = tc.get("args", {})
-                
-                yield {
-                    "type": "tool_start",
+        # Execute tool calls
+        tool_response_parts = []
+        for tc in tool_calls:
+            fn_name = tc.get("name")
+            fn_args = tc.get("args", {})
+            
+            yield {
+                "type": "tool_start",
+                "name": fn_name,
+                "args": fn_args
+            }
+
+            # Run tool
+            tool_result = execute_tool(fn_name, fn_args)
+
+            yield {
+                "type": "tool_result",
+                "name": fn_name,
+                "result": tool_result
+            }
+
+            tool_response_parts.append({
+                "functionResponse": {
                     "name": fn_name,
-                    "args": fn_args
-                }
-
-                # Run tool
-                tool_result = execute_tool(fn_name, fn_args)
-
-                yield {
-                    "type": "tool_result",
-                    "name": fn_name,
-                    "result": tool_result
-                }
-
-                tool_response_parts.append({
-                    "functionResponse": {
-                        "name": fn_name,
-                        "response": {
-                            "output": tool_result
-                        }
+                    "response": {
+                        "output": tool_result
                     }
-                })
-
-            # Append function response to history and loop back
-            current_contents.append({
-                "role": "user",
-                "parts": tool_response_parts
+                }
             })
+
+        # Append function response to history and loop back
+        current_contents.append({
+            "role": "user",
+            "parts": tool_response_parts
+        })
 
     yield {"type": "done", "status": "max_iterations_reached"}
