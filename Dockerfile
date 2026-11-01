@@ -2,13 +2,15 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system utilities & native docker CLI
+# Install system utilities & native static docker CLI (aarch64)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     git \
     procps \
     ca-certificates \
-    docker.io \
+    && curl -fsSL https://download.docker.com/linux/static/stable/aarch64/docker-26.1.4.tgz | tar -xz -C /tmp \
+    && mv /tmp/docker/docker /usr/local/bin/ \
+    && rm -rf /tmp/docker \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
