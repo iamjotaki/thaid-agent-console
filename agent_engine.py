@@ -16,7 +16,7 @@ def get_gemini_api_key():
                     k = line.strip().split("=", 1)[1].strip("'\"")
     return k
 
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "models/gemini-3.5-flash")
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "models/gemini-3.8-flash")
 
 # Tool Definitions for Gemini Function Calling
 TOOLS_DEFINITION = [
@@ -272,7 +272,7 @@ async def run_agent_turn(
         }
 
         api_key = get_gemini_api_key()
-        candidate_models = [GEMINI_MODEL, "models/gemini-3-flash-preview", "models/gemini-3.5-flash-lite"]
+        candidate_models = ["models/gemini-3.8-flash", "models/gemini-3.5-flash", "models/gemini-3-flash-preview", "models/gemini-3.5-flash-lite"]
         data = None
         last_error = ""
 
