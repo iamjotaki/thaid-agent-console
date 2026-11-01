@@ -167,9 +167,9 @@ async def create_new_project(req: CreateProjectRequest, request: Request):
         raise HTTPException(status_code=403, detail="Unauthorized")
     proj = agent_storage.create_project(
         name=req.name,
-        icon=req.icon or "📁",
+        icon=req.icon or "🚀",
         description=req.description or "",
-        working_dir=req.working_dir or "/"
+        working_dir=req.working_dir or ""
     )
     return {"success": True, "project": proj}
 

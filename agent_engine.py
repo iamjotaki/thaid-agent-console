@@ -212,22 +212,25 @@ def execute_tool(name: str, args: Dict[str, Any], working_dir: str = "/") -> str
             cmd = args.get("command", "")
             if not cmd:
                 return "Error: Empty command"
-            proc = subprocess.run(
-                cmd,
-                shell=True,
-                capture_output=True,
-                text=True,
-                timeout=60,
-                cwd=cwd
-            )
-            out = proc.stdout
-            err = proc.stderr
-            res = f"Exit code: {proc.returncode}\n"
-            if out:
-                res += f"STDOUT:\n{out[:4000]}\n"
-            if err:
-                res += f"STDERR:\n{err[:2000]}\n"
-            return res.strip()
+            try:
+                proc = subprocess.run(
+                    cmd,
+                    shell=True,
+                    capture_output=True,
+                    text=True,
+                    timeout=180,
+                    cwd=cwd
+                )
+                out = proc.stdout
+                err = proc.stderr
+                res = f"Exit code: {proc.returncode}\n"
+                if out:
+                    res += f"STDOUT:\n{out[:4000]}\n"
+                if err:
+                    res += f"STDERR:\n{err[:2000]}\n"
+                return res.strip()
+            except subprocess.TimeoutExpired:
+                return "Error: Command timed out after 180 seconds. If this is a long-running build or background process, run it with nohup or check its background task status."
 
         elif name == "read_file":
             path = args.get("path", "")
@@ -384,16 +387,19 @@ def build_system_instruction(project_info: Optional[Dict[str, Any]] = None, agen
 ตอบเป็นภาษาไทยที่เป็นมิตร ให้กำลังใจ และนำเสนอข้อมูลให้อ่านเข้าใจง่าย"""
 
     else:
-        return f"""คุณคือ "ThaiD Antigravity Agent" ผู้ช่วย AI ระดับสูงด้าน DevOps, Software Engineering และ System Administration ประจำระบบ ThaiD Ecosystem (thaid.online)
-คุณกำลังทำงานบนเครื่องเซิร์ฟเวอร์หลัก (Oracle Cloud Ubuntu 24.04 VM: 129.221.170.225) ผ่าน Web Console Container (มี Docker socket เชื่อมต่อ)
+        return f"""คุณคือ "ThaiD Antigravity Agent" ผู้ช่วย AI อัจฉริยะด้าน DevOps, Fullstack Engineering และ Cloud Architect ประจำระบบ ThaiD Ecosystem (thaid.online)
+คุณกำลังทำงานบนเครื่องเซิร์ฟเวอร์หลัก (Oracle Cloud Ubuntu 24.04 VM: 129.221.170.225) ผ่าน Agent Container (เชื่อมต่อ Docker socket และระบบไฟล์โดยตรง)
 {proj_desc}
-แนวทางการทำงานและข้อควรปฏิบัติ:
-1. บริหารจัดการ Docker Containers และดู Logs ของทั้ง 8 บริการ SaaS (thaid.online, novel, social, vault, sticker, clip, chat, mockup)
-2. หากผู้ใช้ต้องการ "สร้างโปรเจกต์ใหม่ทั้งระบบ" (เช่น สร้าง SaaS ตัวใหม่ remove.thaid.online จากศูนย์):
-   - ให้อธิบาย Roadmap และสถาปัตยกรรม (Architecture Plan) ให้ชัดเจน: Frontend (Next.js), AI Engine/API, และการเชื่อมต่อ Google SSO
-   - อธิบายว่า Agent คอนโซลนี้ทำหน้าที่เป็น DevOps Engineer บนคลาวด์ ดูแล Docker/Coolify และสามารถสร้างโปรเจกต์ในระบบได้ ส่วนการพัฒนาโค้ดไฟล์จำนวนมากตั้งแต่เริ่มต้น สามารถทำได้สะดวกที่สุดผ่าน Antigravity IDE (Local Pair Programming) เพื่อ Push ขึ้น GitHub แล้วส่งต่อให้ Agent บนนี้สั่ง Deploy สู่ระบบจริง
-   - อย่าวนลูปใช้คำสั่งค้นหาไฟล์ซ้ำๆ โดยไม่มีเป้าหมายชัดเจน
-3. เมื่อรันคำสั่ง Tool เสร็จแล้ว ต้องสรุปและตอบกลับผู้ใช้เสมอ ห้ามเงียบหายหรือจบเทิร์นโดยไม่มีข้อความอธิบาย"""
+แนวทางการทำงานและหลักการปฏิบัติการ (Execution Doctrine):
+1. มุ่งเน้นผลลัพธ์ที่จับต้องได้ รวดเร็ว และเป็นขั้นตอน (Action-Oriented):
+   - ห้ามวนรันคำสั่งสำรวจโฟลเดอร์กว้างๆ ซ้ำๆ (เช่น `ls /root`, `ls /home`, `whoami`) โดยไม่มีความจำเป็น
+   - เมื่อผู้ใช้สั่งสร้างโปรเจกต์ใหม่ หรือเพิ่มฟีเจอร์ ให้ลงมือสร้างโฟลเดอร์ปลายทาง เขียนไฟล์โค้ด (write_file), คอนฟิก หรือ Dockerfile ทันทีอย่างมีระเบียบ
+2. การบริหารจัดการ Docker & คลาวด์:
+   - ควบคุม Docker Containers ของทุกบริการในระบบ ThaiD ได้โดยตรง
+   - เมื่อต้องการรันคอนเทนเนอร์ใหม่ ให้เชื่อมต่อ network 'coolify' และตั้ง Traefik labels เพื่อให้โดเมนย่อยเปิดใช้งาน SSL ได้อัตโนมัติ
+3. การตอบกลับและสรุปงาน:
+   - สรุปผลการทำงานให้ชัดเจนเสมอว่าได้สร้างไฟล์อะไร รันคอนเทนเนอร์อะไร หรือเกิดปัญหาใด
+   - แสดง URL โดเมนที่เข้าใช้งานได้ หรือคำสั่งถัดไปให้ผู้ใช้เสมอ ห้ามจบเทิร์นโดยไม่สรุปข้อความ"""
 
 async def run_agent_turn(
     messages: List[Dict[str, Any]],
@@ -466,7 +472,7 @@ async def run_agent_turn(
     })
 
     system_inst = build_system_instruction(project_info, agent_role="fullstack")
-    max_tool_iterations = 8
+    max_tool_iterations = 25 if agent_mode == "team" else 15
     iteration = 0
 
     while iteration < max_tool_iterations:

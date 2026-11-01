@@ -77,6 +77,7 @@ def init_db():
                 ("chat", "Smart Chat AI", "💬", "LINE Official Account Auto Reply", "/var/www/chat", 0),
                 ("sticker", "Sticker Studio", "🎨", "LINE & Telegram AI Sticker Maker", "/var/www/sticker", 0),
                 ("mockup", "Mockup Studio", "📸", "4K Product Mockup Generator", "/var/www/mockup", 0),
+                ("remove", "Remove BG AI", "✨", "AI Background Removal & HD Cutout Studio", "/var/www/remove", 0),
             ]
             now = int(time.time())
             for pid, name, icon, desc, wdir, is_def in defaults:
@@ -102,18 +103,31 @@ def list_projects() -> List[Dict[str, Any]]:
         c.execute("SELECT * FROM projects ORDER BY is_default DESC, name ASC")
         return [dict(r) for r in c.fetchall()]
 
-def create_project(name: str, icon: str = "📁", description: str = "", working_dir: str = "/") -> Dict[str, Any]:
+def create_project(name: str, icon: str = "🚀", description: str = "", working_dir: str = "") -> Dict[str, Any]:
     init_db()
-    pid = str(uuid.uuid4())[:8]
+    clean_slug = re.sub(r'[^a-zA-Z0-9]+', '-', name.lower()).strip('-')
+    if not clean_slug:
+        clean_slug = f"project-{str(uuid.uuid4())[:6]}"
+    pid = clean_slug
+
+    if not working_dir or working_dir == "/":
+        working_dir = f"/var/www/{clean_slug}"
+
+    # Auto create directory on host
+    try:
+        os.makedirs(working_dir, exist_ok=True)
+    except Exception:
+        pass
+
     now = int(time.time())
     with get_db() as conn:
         c = conn.cursor()
         c.execute("""
             INSERT INTO projects (id, name, icon, description, working_dir, is_default, created_at)
             VALUES (?, ?, ?, ?, ?, 0, ?)
-        """, (pid, name, icon or "📁", description, working_dir or "/", now))
+        """, (pid, name, icon or "🚀", description, working_dir, now))
         conn.commit()
-    return {"id": pid, "name": name, "icon": icon, "description": description, "working_dir": working_dir}
+    return {"id": pid, "name": name, "icon": icon or "🚀", "description": description, "working_dir": working_dir}
 
 # Threads CRUD
 def list_threads(project_id: Optional[str] = None) -> List[Dict[str, Any]]:

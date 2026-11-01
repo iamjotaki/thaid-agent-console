@@ -101,14 +101,14 @@
                             <span>สลับโปรเจกต์ (Workspaces)</span>
                             <button onclick="openNewProjectModal()" class="text-blue-500 hover:underline text-[10px] cursor-pointer">+ โปรเจกต์ใหม่</button>
                         </div>
-                        <div id="projects-list" class="grid grid-cols-1 gap-1 max-h-[300px] overflow-y-auto">
+                        <div id="projects-list" class="grid grid-cols-1 gap-1 max-h-[320px] overflow-y-auto">
                             {% for p in projects %}
-                            <button onclick="switchProject('{{ p.id }}', '{{ p.icon }}', '{{ p.name }}', '{{ p.working_dir }}')" class="w-full text-left p-2 rounded-xl hover:bg-stone-100 dark:hover:bg-stone-800 flex items-center justify-between text-xs font-semibold text-stone-800 dark:text-stone-200 cursor-pointer">
-                                <span class="flex items-center gap-2 truncate">
-                                    <span>{{ p.icon }}</span>
-                                    <span class="truncate">{{ p.name }}</span>
+                            <button onclick="switchProject('{{ p.id }}', '{{ p.icon }}', '{{ p.name }}', '{{ p.working_dir }}')" class="w-full text-left p-2 rounded-xl hover:bg-stone-100 dark:hover:bg-stone-800 flex items-center justify-between gap-2 text-xs font-semibold text-stone-800 dark:text-stone-200 cursor-pointer group">
+                                <span class="flex items-center gap-2 min-w-0">
+                                    <span class="text-sm shrink-0">{{ p.icon }}</span>
+                                    <span class="truncate font-bold">{{ p.name }}</span>
                                 </span>
-                                <span class="text-[10px] text-stone-400 font-mono">{{ p.working_dir }}</span>
+                                <span class="text-[10px] text-stone-400 font-mono shrink-0 ml-auto">{{ p.working_dir }}</span>
                             </button>
                             {% endfor %}
                         </div>
@@ -469,19 +469,22 @@
             <form onsubmit="handleCreateProject(event)" class="space-y-3 text-xs">
                 <div>
                     <label class="block font-bold text-stone-600 dark:text-stone-300 mb-1">ชื่อโปรเจกต์</label>
-                    <input type="text" id="np-name" required placeholder="เช่น ThaiD Mobile App หรือ Next.js Blog" class="w-full bg-stone-50 dark:bg-stone-800 border border-black/[0.08] dark:border-white/10 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500">
+                    <input type="text" id="np-name" required oninput="autoSlugifyProject()" placeholder="เช่น QR Code Studio หรือ URL Shortener" class="w-full bg-stone-50 dark:bg-stone-800 border border-black/[0.08] dark:border-white/10 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500">
+                    <p class="text-[10px] text-stone-400 mt-1">พิมพ์แค่ชื่อโปรเจกต์ ระบบจะใส่โฟลเดอร์ <span class="font-mono text-blue-500 font-semibold">/var/www/...</span> และเลือกไอคอนให้อัตโนมัติทันที</p>
+                </div>
+                <div class="grid grid-cols-4 gap-2">
+                    <div class="col-span-1">
+                        <label class="block font-bold text-stone-600 dark:text-stone-300 mb-1">ไอคอน</label>
+                        <input type="text" id="np-icon" value="🚀" oninput="this.dataset.manual='true'" class="w-full bg-stone-50 dark:bg-stone-800 border border-black/[0.08] dark:border-white/10 rounded-xl px-3 py-2 text-xs text-center focus:outline-none focus:border-blue-500">
+                    </div>
+                    <div class="col-span-3">
+                        <label class="block font-bold text-stone-600 dark:text-stone-300 mb-1">Working Directory (Auto)</label>
+                        <input type="text" id="np-dir" placeholder="/var/www/..." value="" oninput="this.dataset.manual='true'" class="w-full bg-stone-50 dark:bg-stone-800 border border-black/[0.08] dark:border-white/10 rounded-xl px-3 py-2 text-xs font-mono focus:outline-none focus:border-blue-500">
+                    </div>
                 </div>
                 <div>
-                    <label class="block font-bold text-stone-600 dark:text-stone-300 mb-1">อิโมจิไอคอน</label>
-                    <input type="text" id="np-icon" value="📁" class="w-full bg-stone-50 dark:bg-stone-800 border border-black/[0.08] dark:border-white/10 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500">
-                </div>
-                <div>
-                    <label class="block font-bold text-stone-600 dark:text-stone-300 mb-1">Working Directory บนเซิร์ฟเวอร์</label>
-                    <input type="text" id="np-dir" placeholder="เช่น /var/www/my-project หรือ /" value="/" class="w-full bg-stone-50 dark:bg-stone-800 border border-black/[0.08] dark:border-white/10 rounded-xl px-3 py-2 text-xs font-mono focus:outline-none focus:border-blue-500">
-                </div>
-                <div>
-                    <label class="block font-bold text-stone-600 dark:text-stone-300 mb-1">รายละเอียดหรือข้อกำหนดเฉพาะ</label>
-                    <textarea id="np-desc" rows="2" placeholder="อธิบายหน้าที่ของโปรเจกต์ เทคโนโลยีที่ใช้ หรือกฎการเขียนโค้ด" class="w-full bg-stone-50 dark:bg-stone-800 border border-black/[0.08] dark:border-white/10 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500"></textarea>
+                    <label class="block font-bold text-stone-600 dark:text-stone-300 mb-1">รายละเอียดหรือข้อกำหนดเฉพาะ (ไม่บังคับ)</label>
+                    <textarea id="np-desc" rows="2" placeholder="อธิบายหน้าที่ของโปรเจกต์ หรือเทคโนโลยีที่ต้องการใช้" class="w-full bg-stone-50 dark:bg-stone-800 border border-black/[0.08] dark:border-white/10 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500"></textarea>
                 </div>
                 <div class="flex items-center justify-end gap-2 pt-2">
                     <button type="button" onclick="closeNewProjectModal()" class="px-3 py-1.5 rounded-xl border border-black/[0.08] text-stone-600 hover:bg-stone-50 cursor-pointer">ยกเลิก</button>
@@ -957,8 +960,62 @@
             sendPrompt(promptInput.value);
         }
 
+        function autoSlugifyProject() {
+            const nameInput = document.getElementById('np-name');
+            const dirInput = document.getElementById('np-dir');
+            const iconInput = document.getElementById('np-icon');
+            if (!nameInput || !dirInput) return;
+
+            const val = nameInput.value.trim();
+            const slug = val
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/^-+|-+$/g, '');
+
+            if (dirInput.dataset.manual !== "true") {
+                dirInput.value = slug ? `/var/www/${slug}` : '';
+            }
+
+            if (iconInput && iconInput.dataset.manual !== "true") {
+                const lower = val.toLowerCase();
+                let chosenIcon = '🚀';
+                if (lower.includes('qr')) chosenIcon = '📱';
+                else if (lower.includes('chat') || lower.includes('talk') || lower.includes('bot')) chosenIcon = '💬';
+                else if (lower.includes('novel') || lower.includes('book') || lower.includes('story')) chosenIcon = '📚';
+                else if (lower.includes('social') || lower.includes('post') || lower.includes('feed')) chosenIcon = '📢';
+                else if (lower.includes('remove') || lower.includes('bg') || lower.includes('cut')) chosenIcon = '✨';
+                else if (lower.includes('clip') || lower.includes('video') || lower.includes('media') || lower.includes('film') || lower.includes('movie')) chosenIcon = '🎬';
+                else if (lower.includes('sticker') || lower.includes('draw') || lower.includes('art') || lower.includes('paint')) chosenIcon = '🎨';
+                else if (lower.includes('mockup') || lower.includes('photo') || lower.includes('camera') || lower.includes('pic')) chosenIcon = '📸';
+                else if (lower.includes('vault') || lower.includes('pass') || lower.includes('secret') || lower.includes('key')) chosenIcon = '🔐';
+                else if (lower.includes('url') || lower.includes('link') || lower.includes('short')) chosenIcon = '🔗';
+                else if (lower.includes('shop') || lower.includes('store') || lower.includes('pay') || lower.includes('cart') || lower.includes('commerce')) chosenIcon = '🛍️';
+                else if (lower.includes('agent') || lower.includes('ai') || lower.includes('server') || lower.includes('admin')) chosenIcon = '⚡';
+                else if (lower.includes('music') || lower.includes('song') || lower.includes('sound') || lower.includes('audio')) chosenIcon = '🎵';
+                iconInput.value = chosenIcon;
+            }
+        }
+
         function openNewProjectModal() {
-            document.getElementById('newProjectModal').classList.remove('hidden');
+            const modal = document.getElementById('newProjectModal');
+            const nameInput = document.getElementById('np-name');
+            const dirInput = document.getElementById('np-dir');
+            const iconInput = document.getElementById('np-icon');
+            const descInput = document.getElementById('np-desc');
+
+            if (nameInput) nameInput.value = '';
+            if (dirInput) {
+                dirInput.value = '';
+                dirInput.dataset.manual = "false";
+            }
+            if (iconInput) {
+                iconInput.value = '🚀';
+                iconInput.dataset.manual = "false";
+            }
+            if (descInput) descInput.value = '';
+
+            modal.classList.remove('hidden');
+            setTimeout(() => { if (nameInput) nameInput.focus(); }, 100);
         }
 
         function closeNewProjectModal() {
@@ -968,9 +1025,16 @@
         async function handleCreateProject(e) {
             e.preventDefault();
             const name = document.getElementById('np-name').value.trim();
-            const icon = document.getElementById('np-icon').value.trim() || '📁';
-            const wdir = document.getElementById('np-dir').value.trim() || '/';
+            const icon = document.getElementById('np-icon').value.trim() || '🚀';
+            let wdir = document.getElementById('np-dir').value.trim();
             const desc = document.getElementById('np-desc').value.trim();
+
+            if (!name) return;
+
+            if (!wdir) {
+                const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+                wdir = slug ? `/var/www/${slug}` : '/var/www';
+            }
 
             try {
                 const res = await fetch('/api/projects', {
@@ -981,11 +1045,18 @@
                 const d = await res.json();
                 if (d.success) {
                     closeNewProjectModal();
-                    // Reload page to reflect new project in template or switch directly
-                    window.location.reload();
+                    if (d.project) {
+                        sessionStorage.setItem('active_project_id', d.project.id);
+                        window.location.search = `?project=${encodeURIComponent(d.project.id)}`;
+                    } else {
+                        window.location.reload();
+                    }
+                } else {
+                    alert(d.error || 'สร้างโปรเจกต์ไม่สำเร็จ');
                 }
             } catch (err) {
                 console.error("Create project error:", err);
+                alert("เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์");
             }
         }
 
@@ -994,8 +1065,19 @@
             window.location.href = 'https://thaid.online';
         }
 
-        // Initialize on page load
-        loadThreads(currentProjectId);
+        // Initialize on page load: check URL param or sessionStorage for active project
+        const urlParams = new URLSearchParams(window.location.search);
+        const savedProjId = urlParams.get('project') || sessionStorage.getItem('active_project_id');
+        if (savedProjId && savedProjId !== 'server') {
+            const btn = document.querySelector(`button[onclick*="'${savedProjId}'"]`);
+            if (btn) {
+                btn.click();
+            } else {
+                loadThreads(currentProjectId);
+            }
+        } else {
+            loadThreads(currentProjectId);
+        }
     </script>
 </body>
 </html>
