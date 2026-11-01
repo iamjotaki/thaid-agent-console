@@ -474,9 +474,19 @@ async def run_agent_turn(
     system_inst = build_system_instruction(project_info, agent_role="fullstack")
     max_tool_iterations = 25 if agent_mode == "team" else 15
     iteration = 0
+    start_time = time.time()
+    executed_tools_history = []
+    generated_text_accum = []
 
     while iteration < max_tool_iterations:
         iteration += 1
+
+        yield {
+            "type": "step_progress",
+            "step": iteration,
+            "max_steps": max_tool_iterations,
+            "agent_mode": agent_mode
+        }
 
         payload = {
             "system_instruction": {"parts": [{"text": system_inst}]},
@@ -517,6 +527,7 @@ async def run_agent_turn(
 
         if text_blocks:
             full_text = "".join(text_blocks)
+            generated_text_accum.append(full_text)
             yield {"type": "text", "content": full_text}
 
         # If no tool calls, turn is finished!
@@ -527,7 +538,15 @@ async def run_agent_turn(
                     "role": "QA Reviewer Lead 🛡️",
                     "message": "ตรวจสอบผลลัพธ์และความปลอดภัยเรียบร้อย"
                 }
-            yield {"type": "done", "status": "finished"}
+            elapsed = round(time.time() - start_time, 1)
+            yield {
+                "type": "done",
+                "status": "finished",
+                "total_tools": len(executed_tools_history),
+                "total_steps": iteration,
+                "duration_s": elapsed,
+                "limit_reached": False
+            }
             return
 
         # Append model's response
@@ -541,11 +560,14 @@ async def run_agent_turn(
         for tc in tool_calls:
             fn_name = tc.get("name")
             fn_args = tc.get("args", {})
+            executed_tools_history.append({"name": fn_name, "args": fn_args})
 
             yield {
                 "type": "tool_start",
                 "name": fn_name,
-                "args": fn_args
+                "args": fn_args,
+                "step": iteration,
+                "max_steps": max_tool_iterations
             }
 
             # Run tool
@@ -554,7 +576,9 @@ async def run_agent_turn(
             yield {
                 "type": "tool_result",
                 "name": fn_name,
-                "result": tool_result
+                "result": tool_result,
+                "step": iteration,
+                "max_steps": max_tool_iterations
             }
 
             tool_response_parts.append({
@@ -571,23 +595,42 @@ async def run_agent_turn(
             "parts": tool_response_parts
         })
 
-    # If maximum tool iterations reached, force a final synthesis turn to explain results to the user
+    # If maximum tool iterations reached, force a final synthesis turn WITHOUT tools
+    summary_inst = system_inst + "\n\n[คำสั่งบังคับ]: คุณได้ปฏิบัติงานครบจำนวนรอบสูงสุดแล้ว ตอนนี้ห้ามเรียก tool ใดๆ เพิ่ม ให้สรุปผลงานที่ทำสำเร็จทั้งหมด และแนะนำขั้นตอนถัดไปให้ผู้ใช้ทราบอย่างชัดเจน"
     summary_payload = {
-        "system_instruction": {"parts": [{"text": system_inst}]},
-        "contents": current_contents + [{
-            "role": "user",
-            "parts": [{"text": "โปรดสรุปผลการทำงานทั้งหมดข้างต้น อธิบายสิ่งที่ได้ตรวจสอบหรือทำไปแล้ว และแนะนำขั้นตอนต่อไปให้ Admin Jotaki ทราบอย่างชัดเจนและครบถ้วน"}]
-        }],
+        "system_instruction": {"parts": [{"text": summary_inst}]},
+        "contents": current_contents,
         "generation_config": {"temperature": 0.4, "max_output_tokens": 2048}
     }
     try:
         final_data = await call_gemini_api(summary_payload)
-        cands = final_data.get("candidates", [])
+        cands = final_data.get("candidates", []) if isinstance(final_data, dict) else []
         if cands:
             txt = "".join(p["text"] for p in cands[0].get("content", {}).get("parts", []) if "text" in p)
             if txt:
-                yield {"type": "text", "content": txt}
-    except Exception:
-        pass
+                generated_text_accum.append(txt)
+                yield {"type": "text", "content": "\n\n" + txt}
+    except Exception as ex:
+        print(f"Summary call error: {ex}")
 
-    yield {"type": "done", "status": "finished"}
+    # Fallback if text is still empty:
+    if not "".join(generated_text_accum).strip():
+        recent_summary = "\n".join([f"- `{t['name']}`: สำเร็จ" for t in executed_tools_history[-6:]])
+        fallback_msg = f"""
+### 📊 สรุปผลการปฏิบัติงานของ Agent (ถึงขีดจำกัด {max_tool_iterations} รอบ)
+Agent ได้ดำเนินการเรียกใช้เครื่องมือในโปรเจกต์นี้สำเร็จแล้ว **{len(executed_tools_history)} รายการ**:
+{recent_summary}
+
+คุณสามารถสั่งการขั้นตอนต่อไปได้ทันทีครับ เช่น พิมพ์สั่ง: **`ดำเนินการต่อจากขั้นตอนล่าสุดจนเสร็จสมบูรณ์`**
+"""
+        yield {"type": "text", "content": fallback_msg}
+
+    elapsed = round(time.time() - start_time, 1)
+    yield {
+        "type": "done",
+        "status": "limit_reached",
+        "total_tools": len(executed_tools_history),
+        "total_steps": iteration,
+        "duration_s": elapsed,
+        "limit_reached": True
+    }

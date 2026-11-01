@@ -372,6 +372,9 @@
                     </span>
                     <span class="text-stone-300 dark:text-stone-600">|</span>
                     <span id="canvas-project-dir" class="text-stone-400 font-mono text-[11px] truncate">/</span>
+                    <span id="canvas-header-status" class="ml-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 font-semibold text-[10px] border border-emerald-200/50">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>พร้อมรับคำสั่ง
+                    </span>
                 </div>
 
                 <!-- Agent Mode Switcher (Single vs Multi-Agent Team) -->
@@ -729,6 +732,11 @@
                     });
                 }
 
+                let fallbackText = msg.content || '';
+                if (!fallbackText && msg.tool_calls && msg.tool_calls.length > 0) {
+                    fallbackText = `*Agent ได้ดำเนินการเรียกใช้ ${msg.tool_calls.length} เครื่องมือเสร็จสิ้นตามคำสั่งเรียบร้อยแล้ว*`;
+                }
+
                 msgDiv.innerHTML = `
                     <div class="w-8 h-8 rounded-2xl bg-stone-900 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-xs">
                         ⚡
@@ -736,7 +744,13 @@
                     <div class="max-w-[90%] sm:max-w-[80%] rounded-2xl rounded-tl-xs bg-stone-100 dark:bg-stone-800 text-stone-900 dark:text-stone-100 px-4 py-3 text-xs sm:text-sm shadow-xs leading-relaxed code-block space-y-2">
                         <div class="tool-logs space-y-1 mb-2">${toolCardsHtml}</div>
                         <div class="prose dark:prose-invert max-w-none text-xs sm:text-sm">
-                            ${marked.parse(msg.content || '')}
+                            ${marked.parse(fallbackText)}
+                        </div>
+                        <div class="mt-2 pt-2 border-t border-black/[0.05] dark:border-white/[0.05] flex items-center justify-between text-[11px] text-stone-500 font-mono">
+                            <span class="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
+                                <i class="fa-solid fa-circle-check text-xs"></i> ทำงานเสร็จสิ้น (Completed)
+                            </span>
+                            <span>${msg.tool_calls ? msg.tool_calls.length + ' เครื่องมือ' : ''}</span>
                         </div>
                     </div>
                 `;
@@ -795,7 +809,7 @@
             statusBar.classList.remove('hidden');
             statusText.innerText = currentAgentMode === 'team' ? "ทีม Agent กำลังวิเคราะห์และวางแผนงาน..." : "Agent กำลังวิเคราะห์คำสั่ง...";
 
-            // Prepare bot container for streaming
+            // Prepare bot container for streaming with live status card
             const botMsgDiv = document.createElement('div');
             botMsgDiv.className = "flex gap-3 justify-start";
             botMsgDiv.innerHTML = `
@@ -807,6 +821,7 @@
                     <div class="plan-container hidden mb-3 p-3 rounded-xl bg-blue-50/80 dark:bg-blue-950/30 border border-blue-200/50"></div>
                     <div class="tool-logs space-y-1 mb-2"></div>
                     <div class="bot-content prose dark:prose-invert max-w-none text-xs sm:text-sm"></div>
+                    <div class="status-card-box mt-3"></div>
                 </div>
             `;
             chatContainer.appendChild(botMsgDiv);
@@ -816,7 +831,43 @@
             const planContainer = botMsgDiv.querySelector('.plan-container');
             const toolLogs = botMsgDiv.querySelector('.tool-logs');
             const botContent = botMsgDiv.querySelector('.bot-content');
+            const statusCardBox = botMsgDiv.querySelector('.status-card-box');
             let accumulatedText = "";
+
+            const startTime = Date.now();
+            let totalToolsCount = 0;
+            let currentStepText = currentAgentMode === 'team' ? "ทีม Agent กำลังวิเคราะห์และวางแผนงาน..." : "Agent กำลังวิเคราะห์คำสั่ง...";
+            let currentToolName = "";
+            let isTurnCompleted = false;
+
+            // Set Top Header Status
+            const headerStatus = document.getElementById('canvas-header-status');
+            if (headerStatus) {
+                headerStatus.className = "ml-1 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-bold text-[10px] border border-blue-200/50 animate-pulse";
+                headerStatus.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-blue-500 animate-ping"></span><span>กำลังทำงาน...</span>`;
+            }
+
+            function renderLiveStatus() {
+                if (isTurnCompleted) return;
+                const elapsedSec = Math.floor((Date.now() - startTime) / 1000);
+                statusCardBox.innerHTML = `
+                    <div class="p-2.5 rounded-2xl bg-blue-50/90 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-800/40 flex items-center justify-between gap-3 text-xs shadow-2xs">
+                        <div class="flex items-center gap-2 min-w-0">
+                            <span class="relative flex h-2.5 w-2.5 shrink-0">
+                                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                                <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#0569ff]"></span>
+                            </span>
+                            <span class="font-bold text-blue-900 dark:text-blue-200 truncate">${escapeHtml(currentStepText)}</span>
+                        </div>
+                        <div class="flex items-center gap-2 text-stone-500 font-mono text-[11px] shrink-0">
+                            ${currentToolName ? `<span class="truncate max-w-[140px] text-stone-600 dark:text-stone-300 font-semibold">${escapeHtml(currentToolName)}</span><span class="text-stone-300">|</span>` : ''}
+                            <span class="font-bold text-blue-600 dark:text-blue-400">⏱️ ${elapsedSec}s</span>
+                        </div>
+                    </div>
+                `;
+            }
+            renderLiveStatus();
+            const timerInterval = setInterval(renderLiveStatus, 1000);
 
             try {
                 const response = await fetch('/api/agent/chat', {
@@ -864,6 +915,9 @@
                                 badge.className = "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-800 dark:text-purple-300 text-[10px] font-bold border border-purple-200/50 mb-1 mr-1";
                                 badge.innerHTML = `<span>${event.role}</span>: <span class="font-normal">${escapeHtml(event.message)}</span>`;
                                 agentBadges.appendChild(badge);
+                            } else if (event.type === 'step_progress') {
+                                currentStepText = `ขั้นตอนที่ ${event.step}/${event.max_steps} (${event.agent_mode === 'team' ? 'ทีม Agent' : 'โหมดเดี่ยว'})`;
+                                renderLiveStatus();
                             } else if (event.type === 'plan_ready') {
                                 planContainer.classList.remove('hidden');
                                 planContainer.innerHTML = `
@@ -878,7 +932,11 @@
                                 botContent.innerHTML = marked.parse(accumulatedText);
                                 hljs.highlightAll();
                             } else if (event.type === 'tool_start') {
+                                totalToolsCount++;
+                                currentToolName = event.name;
                                 statusText.innerText = `กำลังรัน Tool: ${event.name}...`;
+                                renderLiveStatus();
+
                                 const toolCard = document.createElement('div');
                                 toolCard.className = "tool-item p-2 rounded-xl bg-stone-200/70 dark:bg-stone-700/60 text-[11px] font-mono border border-black/[0.05] flex items-center justify-between";
                                 toolCard.dataset.tool = event.name;
@@ -889,7 +947,7 @@
                                         <i class="fa-solid fa-gear fa-spin"></i>
                                         <span>${event.name}${escapeHtml(argsLabel)}</span>
                                     </span>
-                                    <span class="text-stone-400 text-[10px]">Executing...</span>
+                                    <span class="text-stone-400 text-[10px]">กำลังรัน...</span>
                                 `;
                                 toolLogs.appendChild(toolCard);
                             } else if (event.type === 'tool_result') {
@@ -910,6 +968,17 @@
                                     `;
                                 }
                             } else if (event.type === 'done') {
+                                isTurnCompleted = true;
+                                clearInterval(timerInterval);
+                                const finalElapsed = event.duration_s || Math.floor((Date.now() - startTime) / 1000);
+                                const totalTools = event.total_tools || totalToolsCount;
+
+                                // Update Header Status
+                                if (headerStatus) {
+                                    headerStatus.className = "ml-1 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 font-bold text-[10px] border border-emerald-200/50";
+                                    headerStatus.innerHTML = `<i class="fa-solid fa-check text-[10px]"></i><span>เสร็จสิ้น (${finalElapsed}s)</span>`;
+                                }
+
                                 toolLogs.querySelectorAll('.tool-item[data-status="executing"]').forEach(c => {
                                     c.dataset.status = "done";
                                     c.className = "tool-item p-2 rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 text-[11px] font-mono border border-emerald-500/20";
@@ -924,8 +993,52 @@
                                         </div>
                                     `;
                                 });
+
+                                if (event.limit_reached) {
+                                    statusCardBox.innerHTML = `
+                                        <div class="p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs shadow-2xs">
+                                            <div class="flex items-center gap-2 text-amber-900 dark:text-amber-200 font-bold">
+                                                <i class="fa-solid fa-circle-pause text-amber-500 text-sm shrink-0"></i>
+                                                <span>ถึงขีดจำกัดรอบในรอบนี้ (${event.total_steps || 25} ขั้นตอน) • สำเร็จ ${totalTools} คำสั่ง</span>
+                                            </div>
+                                            <button onclick="sendPrompt('ดำเนินการต่อจากขั้นตอนล่าสุดจนเสร็จสมบูรณ์')" class="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 active:scale-95 text-white font-bold text-xs flex items-center gap-1.5 transition shadow-xs cursor-pointer shrink-0">
+                                                <i class="fa-solid fa-play text-[10px]"></i>
+                                                <span>สั่งให้ทำต่อทันที</span>
+                                            </button>
+                                        </div>
+                                    `;
+                                } else {
+                                    statusCardBox.innerHTML = `
+                                        <div class="p-2.5 rounded-2xl bg-emerald-50/90 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/40 flex items-center justify-between gap-3 text-xs shadow-2xs">
+                                            <div class="flex items-center gap-2 text-emerald-800 dark:text-emerald-200 font-bold">
+                                                <i class="fa-solid fa-circle-check text-emerald-600 text-sm"></i>
+                                                <span>ดำเนินการเสร็จสิ้นเรียบร้อย (Completed)</span>
+                                            </div>
+                                            <div class="text-[11px] text-stone-500 dark:text-stone-400 font-mono">
+                                                <span>⏱️ ใช้เวลา ${finalElapsed}s</span> • <span>🛠️ ${totalTools} เครื่องมือ</span>
+                                            </div>
+                                        </div>
+                                    `;
+                                }
                             } else if (event.type === 'error') {
+                                isTurnCompleted = true;
+                                clearInterval(timerInterval);
+                                if (headerStatus) {
+                                    headerStatus.className = "ml-1 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-rose-50 text-rose-600 font-bold text-[10px] border border-rose-200/50";
+                                    headerStatus.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-[10px]"></i><span>พบปัญหา</span>`;
+                                }
                                 botContent.innerHTML += `<div class="text-rose-500 mt-2 font-bold">${escapeHtml(event.content)}</div>`;
+                                statusCardBox.innerHTML = `
+                                    <div class="p-3 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 text-xs">
+                                        <div class="flex items-center gap-2 text-rose-800 dark:text-rose-200 font-bold">
+                                            <i class="fa-solid fa-circle-exclamation text-rose-500 text-sm shrink-0"></i>
+                                            <span>${escapeHtml(event.content)}</span>
+                                        </div>
+                                        <button onclick="sendPrompt('ตรวจเช็คสถานะการทำงานล่าสุดว่าทำถึงไหนแล้ว')" class="px-3 py-1 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs shrink-0 cursor-pointer">
+                                            🔍 ตรวจสอบสถานะ
+                                        </button>
+                                    </div>
+                                `;
                             }
                             chatContainer.scrollTop = chatContainer.scrollHeight;
                         } catch (e) {
@@ -938,7 +1051,24 @@
                 await loadThreads(currentProjectId);
 
             } catch (err) {
+                isTurnCompleted = true;
+                clearInterval(timerInterval);
+                if (headerStatus) {
+                    headerStatus.className = "ml-1 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-rose-50 text-rose-600 font-bold text-[10px] border border-rose-200/50";
+                    headerStatus.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-[10px]"></i><span>ขาดการเชื่อมต่อ</span>`;
+                }
                 botContent.innerHTML += `<div class="text-rose-500">Network Error: ${err.message}</div>`;
+                statusCardBox.innerHTML = `
+                    <div class="p-3 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 text-xs shadow-2xs">
+                        <div class="flex items-center gap-2 text-rose-800 dark:text-rose-200 font-bold">
+                            <i class="fa-solid fa-circle-exclamation text-rose-500 text-sm shrink-0"></i>
+                            <span>การเชื่อมต่อขาดหาย (Connection Error: ${escapeHtml(err.message)})</span>
+                        </div>
+                        <button onclick="sendPrompt('สรุปสถานะปัจจุบันของโปรเจกต์นี้ให้หน่อย')" class="px-3 py-1 rounded-xl bg-rose-500 hover:bg-rose-600 active:scale-95 text-white font-bold text-xs shrink-0 transition cursor-pointer">
+                            🔄 ลองเชื่อมต่อใหม่
+                        </button>
+                    </div>
+                `;
             } finally {
                 isProcessing = false;
                 btnSend.disabled = false;
