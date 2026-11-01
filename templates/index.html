@@ -515,29 +515,50 @@
                             } else if (event.type === 'tool_start') {
                                 statusText.innerText = `กำลังรัน Tool: ${event.name}...`;
                                 const toolCard = document.createElement('div');
-                                toolCard.className = "p-2 rounded-xl bg-stone-200/70 dark:bg-stone-700/60 text-[11px] font-mono border border-black/[0.05] flex items-center justify-between";
-                                toolCard.id = `tool-${event.name}`;
+                                toolCard.className = "tool-item p-2 rounded-xl bg-stone-200/70 dark:bg-stone-700/60 text-[11px] font-mono border border-black/[0.05] flex items-center justify-between";
+                                toolCard.dataset.tool = event.name;
+                                toolCard.dataset.status = "executing";
+                                const argsLabel = event.args && Object.keys(event.args).length > 0 ? ` (${JSON.stringify(event.args).replace(/[{}"]/g, '')})` : '';
                                 toolCard.innerHTML = `
-                                    <span class="flex items-center gap-1.5 text-blue-600 dark:text-blue-400 font-semibold">
+                                    <span class="flex items-center gap-1.5 text-blue-600 dark:text-blue-400 font-semibold truncate max-w-[70%]">
                                         <i class="fa-solid fa-gear fa-spin"></i>
-                                        <span>${event.name}</span>
+                                        <span>${event.name}${escapeHtml(argsLabel)}</span>
                                     </span>
                                     <span class="text-stone-400 text-[10px]">Executing...</span>
                                 `;
                                 toolLogs.appendChild(toolCard);
                             } else if (event.type === 'tool_result') {
-                                const toolCard = document.getElementById(`tool-${event.name}`);
+                                const toolCards = toolLogs.querySelectorAll(`.tool-item[data-tool="${event.name}"][data-status="executing"]`);
+                                const toolCard = toolCards.length > 0 ? toolCards[0] : null;
                                 if (toolCard) {
-                                    toolCard.className = "p-2 rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 text-[11px] font-mono border border-emerald-500/20";
+                                    toolCard.dataset.status = "done";
+                                    toolCard.className = "tool-item p-2 rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 text-[11px] font-mono border border-emerald-500/20";
+                                    const span = toolCard.querySelector('span span');
+                                    const labelText = span ? span.innerText : event.name;
                                     toolCard.innerHTML = `
-                                        <div class="flex items-center justify-between">
-                                            <span class="font-bold flex items-center gap-1.5">
-                                                <i class="fa-solid fa-check"></i> ${event.name} สำเร็จ
+                                        <div class="flex items-center justify-between w-full">
+                                            <span class="font-bold flex items-center gap-1.5 truncate max-w-[80%]">
+                                                <i class="fa-solid fa-check"></i> ${escapeHtml(labelText)} สำเร็จ
                                             </span>
                                             <span class="text-[9px] text-stone-400">Done</span>
                                         </div>
                                     `;
                                 }
+                            } else if (event.type === 'done') {
+                                toolLogs.querySelectorAll('.tool-item[data-status="executing"]').forEach(c => {
+                                    c.dataset.status = "done";
+                                    c.className = "tool-item p-2 rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 text-[11px] font-mono border border-emerald-500/20";
+                                    const span = c.querySelector('span span');
+                                    const labelText = span ? span.innerText : 'Tool';
+                                    c.innerHTML = `
+                                        <div class="flex items-center justify-between w-full">
+                                            <span class="font-bold flex items-center gap-1.5 truncate max-w-[80%]">
+                                                <i class="fa-solid fa-check"></i> ${escapeHtml(labelText)} สำเร็จ
+                                            </span>
+                                            <span class="text-[9px] text-stone-400">Done</span>
+                                        </div>
+                                    `;
+                                });
                             } else if (event.type === 'error') {
                                 botContent.innerHTML += `<div class="text-rose-500 mt-2 font-bold">${escapeHtml(event.content)}</div>`;
                             }
