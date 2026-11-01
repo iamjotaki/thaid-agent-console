@@ -457,11 +457,33 @@
 
             <!-- Input Bar -->
             <div class="p-3 sm:p-4 border-t border-black/[0.06] dark:border-white/[0.08] bg-white/95 dark:bg-stone-900/95 backdrop-blur-md">
+                <!-- Attachment preview bar -->
+                <div id="attachment-preview-bar" class="hidden mb-2.5 flex flex-wrap gap-2 items-center"></div>
+
                 <form id="chat-form" onsubmit="handleSubmit(event)" class="relative flex items-center gap-2">
+                    <input 
+                        type="file" 
+                        id="file-upload-input" 
+                        multiple 
+                        accept="image/*,.pdf,.txt,.py,.js,.html,.css,.json,.md,.csv,.zip" 
+                        class="hidden" 
+                        onchange="handleFileSelected(event)"
+                    >
+
+                    <button 
+                        type="button" 
+                        id="btn-attach" 
+                        onclick="document.getElementById('file-upload-input').click()" 
+                        title="แนบรูปภาพหรือไฟล์ (หรือกด Ctrl+V เพื่อวางรูปภาพ)"
+                        class="w-10 h-10 rounded-2xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-750 text-stone-600 dark:text-stone-300 flex items-center justify-center text-sm transition cursor-pointer shrink-0"
+                    >
+                        <i class="fa-solid fa-paperclip"></i>
+                    </button>
+
                     <textarea 
                         id="prompt-input"
                         rows="1"
-                        placeholder="สั่งงาน Antigravity Agent เช่น ตรวจเช็คสถานะเซิร์ฟเวอร์, ดู log, เขียนโค้ด, สั่ง deploy..."
+                        placeholder="สั่งงาน Antigravity Agent เช่น ตรวจเช็คสถานะ, แนบรูป/ไฟล์, เขียนโค้ด, สั่ง deploy..."
                         class="flex-1 bg-stone-50 dark:bg-stone-800 border border-black/[0.08] dark:border-white/10 rounded-2xl px-4 py-3 text-xs sm:text-sm text-stone-900 dark:text-white placeholder-stone-400 focus:outline-none focus:border-[#0569ff] resize-none max-h-32 transition"
                         onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); handleSubmit(event); }"
                     ></textarea>
@@ -657,6 +679,87 @@
         let currentThreadId = null;
         let currentAgentMode = 'single'; // 'single' or 'team'
         let isProcessing = false;
+        let pendingAttachments = [];
+
+        function renderAttachmentPreviews() {
+            const bar = document.getElementById('attachment-preview-bar');
+            if (!bar) return;
+            if (pendingAttachments.length === 0) {
+                bar.classList.add('hidden');
+                bar.innerHTML = '';
+                return;
+            }
+            bar.classList.remove('hidden');
+            let html = '';
+            pendingAttachments.forEach((att, idx) => {
+                if (att.is_image) {
+                    html += `
+                        <div class="relative group inline-block rounded-xl overflow-hidden border border-black/10 dark:border-white/10 shadow-xs bg-stone-100 dark:bg-stone-800">
+                            <img src="${att.url}" class="h-14 w-18 object-cover" alt="${escapeHtml(att.filename)}">
+                            <button type="button" onclick="removeAttachment(${idx})" class="absolute top-1 right-1 w-5 h-5 bg-rose-500 hover:bg-rose-600 text-white rounded-full flex items-center justify-center text-[10px] shadow-sm cursor-pointer" title="ลบรูปนี้">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                            <span class="absolute bottom-0 inset-x-0 bg-black/60 text-white text-[9px] px-1 truncate">${escapeHtml(att.filename)}</span>
+                        </div>
+                    `;
+                } else {
+                    html += `
+                        <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-black/10 dark:border-white/10 bg-stone-100 dark:bg-stone-800 text-xs font-mono">
+                            <i class="fa-solid fa-file text-blue-500"></i>
+                            <span class="truncate max-w-[140px] font-semibold">${escapeHtml(att.filename)}</span>
+                            <button type="button" onclick="removeAttachment(${idx})" class="ml-1 text-stone-400 hover:text-rose-500 text-xs cursor-pointer" title="ลบไฟล์">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                        </div>
+                    `;
+                }
+            });
+            bar.innerHTML = html;
+        }
+
+        function removeAttachment(idx) {
+            pendingAttachments.splice(idx, 1);
+            renderAttachmentPreviews();
+        }
+
+        async function uploadFileToServer(file) {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const uploadBtn = document.getElementById('btn-attach');
+            const origHtml = uploadBtn ? uploadBtn.innerHTML : '';
+            if (uploadBtn) uploadBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-blue-500"></i>';
+
+            try {
+                const res = await fetch('/api/agent/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                if (!res.ok) {
+                    throw new Error(`Upload error (${res.status})`);
+                }
+                const data = await res.json();
+                if (data.success) {
+                    pendingAttachments.push(data);
+                    renderAttachmentPreviews();
+                } else {
+                    alert("อัปโหลดไม่สำเร็จ: " + (data.error || "เกิดข้อผิดพลาด"));
+                }
+            } catch (err) {
+                alert("เกิดข้อผิดพลาดในการอัปโหลด: " + err.message);
+            } finally {
+                if (uploadBtn) uploadBtn.innerHTML = origHtml;
+            }
+        }
+
+        async function handleFileSelected(event) {
+            const files = event.target.files;
+            if (!files || files.length === 0) return;
+            for (let i = 0; i < files.length; i++) {
+                await uploadFileToServer(files[i]);
+            }
+            event.target.value = '';
+        }
 
         function toggleMenu(menuId) {
             const menu = document.getElementById(menuId);
@@ -1044,9 +1147,32 @@
             msgDiv.className = `flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`;
 
             if (msg.role === 'user') {
+                let attHtml = "";
+                if (msg.attachments && Array.isArray(msg.attachments) && msg.attachments.length > 0) {
+                    attHtml = `<div class="flex flex-wrap gap-2 mt-2 pt-2 border-t border-white/20">`;
+                    msg.attachments.forEach(att => {
+                        if (att.is_image) {
+                            attHtml += `
+                                <a href="${att.url}" target="_blank" class="block group relative overflow-hidden rounded-xl border border-white/20 shadow-xs">
+                                    <img src="${att.url}" class="max-w-[180px] max-h-[120px] object-cover group-hover:scale-105 transition" alt="${escapeHtml(att.filename)}">
+                                </a>
+                            `;
+                        } else {
+                            attHtml += `
+                                <a href="${att.url}" target="_blank" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white/20 hover:bg-white/30 text-white text-[11px] font-mono transition">
+                                    <i class="fa-solid fa-file text-xs"></i>
+                                    <span class="truncate max-w-[140px]">${escapeHtml(att.filename)}</span>
+                                </a>
+                            `;
+                        }
+                    });
+                    attHtml += `</div>`;
+                }
+
                 msgDiv.innerHTML = `
                     <div class="max-w-[85%] sm:max-w-[75%] rounded-2xl rounded-tr-xs bg-[#0569ff] text-white px-4 py-2.5 text-xs sm:text-sm shadow-xs leading-relaxed">
                         ${escapeHtml(msg.content)}
+                        ${attHtml}
                     </div>
                     <div class="w-8 h-8 rounded-full bg-[#004bb5] text-white flex items-center justify-center font-bold text-xs shrink-0 select-none shadow-xs">
                         J
@@ -1095,14 +1221,37 @@
             chatContainer.appendChild(msgDiv);
         }
 
-        function appendMessage(role, content) {
+        function appendMessage(role, content, attachments = []) {
             const msgDiv = document.createElement('div');
             msgDiv.className = `flex gap-3 ${role === 'user' ? 'justify-end' : 'justify-start'}`;
 
             if (role === 'user') {
+                let attHtml = "";
+                if (attachments && Array.isArray(attachments) && attachments.length > 0) {
+                    attHtml = `<div class="flex flex-wrap gap-2 mt-2 pt-2 border-t border-white/20">`;
+                    attachments.forEach(att => {
+                        if (att.is_image) {
+                            attHtml += `
+                                <a href="${att.url}" target="_blank" class="block group relative overflow-hidden rounded-xl border border-white/20 shadow-xs">
+                                    <img src="${att.url}" class="max-w-[180px] max-h-[120px] object-cover group-hover:scale-105 transition" alt="${escapeHtml(att.filename)}">
+                                </a>
+                            `;
+                        } else {
+                            attHtml += `
+                                <a href="${att.url}" target="_blank" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white/20 hover:bg-white/30 text-white text-[11px] font-mono transition">
+                                    <i class="fa-solid fa-file text-xs"></i>
+                                    <span class="truncate max-w-[140px]">${escapeHtml(att.filename)}</span>
+                                </a>
+                            `;
+                        }
+                    });
+                    attHtml += `</div>`;
+                }
+
                 msgDiv.innerHTML = `
                     <div class="max-w-[85%] sm:max-w-[75%] rounded-2xl rounded-tr-xs bg-[#0569ff] text-white px-4 py-2.5 text-xs sm:text-sm shadow-xs leading-relaxed">
                         ${escapeHtml(content)}
+                        ${attHtml}
                     </div>
                     <div class="w-8 h-8 rounded-full bg-[#004bb5] text-white flex items-center justify-center font-bold text-xs shrink-0 select-none shadow-xs">
                         J
@@ -1134,13 +1283,19 @@
         }
 
         async function sendPrompt(text) {
-            if (isProcessing || !text.trim()) return;
+            const hasText = text && text.trim().length > 0;
+            const hasAttachments = pendingAttachments.length > 0;
+            if (isProcessing || (!hasText && !hasAttachments)) return;
             isProcessing = true;
             btnSend.disabled = true;
 
-            const prompt = text.trim();
+            const prompt = hasText ? text.trim() : "กรุณาวิเคราะห์รูปภาพ/ไฟล์ที่แนบมานี้";
+            const attachmentsToSend = [...pendingAttachments];
+            pendingAttachments = [];
+            renderAttachmentPreviews();
+
             promptInput.value = '';
-            appendMessage('user', prompt);
+            appendMessage('user', prompt, attachmentsToSend);
 
             statusBar.classList.remove('hidden');
             statusText.innerText = currentAgentMode === 'agy' ? "Antigravity CLI กำลังรันคำสั่ง..." : (currentAgentMode === 'team' ? "ทีม Agent กำลังวิเคราะห์และวางแผนงาน..." : "Agent กำลังวิเคราะห์คำสั่ง...");
@@ -1214,7 +1369,8 @@
                         prompt: prompt,
                         thread_id: currentThreadId,
                         project_id: currentProjectId,
-                        agent_mode: currentAgentMode
+                        agent_mode: currentAgentMode,
+                        attachments: attachmentsToSend
                     })
                 });
 
@@ -1545,6 +1701,51 @@
             }
         } else {
             loadThreads(currentProjectId);
+        }
+        // Clipboard Paste Listener (Ctrl+V screenshot / image / file)
+        document.addEventListener('paste', async (e) => {
+            const clipboardData = e.clipboardData || window.clipboardData;
+            if (!clipboardData) return;
+            const items = clipboardData.items;
+            if (!items) return;
+
+            let fileFound = false;
+            for (let i = 0; i < items.length; i++) {
+                const item = items[i];
+                if (item.type.indexOf('image') !== -1 || item.kind === 'file') {
+                    const blob = item.getAsFile();
+                    if (blob) {
+                        fileFound = true;
+                        await uploadFileToServer(blob);
+                    }
+                }
+            }
+            if (fileFound) {
+                promptInput.focus();
+            }
+        });
+
+        // Drag & Drop on Chat Area
+        const chatMain = document.querySelector('main');
+        if (chatMain) {
+            chatMain.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                chatMain.classList.add('ring-2', 'ring-blue-500', 'ring-inset');
+            });
+            chatMain.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                chatMain.classList.remove('ring-2', 'ring-blue-500', 'ring-inset');
+            });
+            chatMain.addEventListener('drop', async (e) => {
+                e.preventDefault();
+                chatMain.classList.remove('ring-2', 'ring-blue-500', 'ring-inset');
+                const files = e.dataTransfer.files;
+                if (files && files.length > 0) {
+                    for (let i = 0; i < files.length; i++) {
+                        await uploadFileToServer(files[i]);
+                    }
+                }
+            });
         }
     </script>
 </body>

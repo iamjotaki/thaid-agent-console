@@ -80,6 +80,12 @@ def init_db():
         )
         """)
 
+        # Add attachments column to messages if missing
+        try:
+            c.execute("ALTER TABLE messages ADD COLUMN attachments TEXT")
+        except Exception:
+            pass
+
         # Seed default projects if none exist
         c.execute("SELECT COUNT(*) FROM projects")
         if c.fetchone()[0] == 0:
@@ -236,19 +242,25 @@ def get_messages(thread_id: str) -> List[Dict[str, Any]]:
                     d["tool_calls"] = json.loads(d["tool_calls"])
                 except Exception:
                     pass
+            if d.get("attachments"):
+                try:
+                    d["attachments"] = json.loads(d["attachments"])
+                except Exception:
+                    pass
             msgs.append(d)
         return msgs
 
-def save_message(thread_id: str, role: str, content: str, tool_calls: Optional[Any] = None):
+def save_message(thread_id: str, role: str, content: str, tool_calls: Optional[Any] = None, attachments: Optional[Any] = None):
     init_db()
     now = int(time.time())
     tc_json = json.dumps(tool_calls, ensure_ascii=False) if tool_calls else None
+    att_json = json.dumps(attachments, ensure_ascii=False) if attachments else None
     with get_db() as conn:
         c = conn.cursor()
         c.execute("""
-            INSERT INTO messages (thread_id, role, content, tool_calls, created_at)
-            VALUES (?, ?, ?, ?, ?)
-        """, (thread_id, role, content, tc_json, now))
+            INSERT INTO messages (thread_id, role, content, tool_calls, attachments, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (thread_id, role, content, tc_json, att_json, now))
         c.execute("UPDATE threads SET updated_at = ? WHERE id = ?", (now, thread_id))
         conn.commit()
 

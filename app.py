@@ -4,8 +4,10 @@ import time
 import base64
 import hmac
 import hashlib
+import uuid
+import shutil
 from typing import Dict, Any, List, Optional
-from fastapi import FastAPI, Request, Response, HTTPException, status, Query
+from fastapi import FastAPI, Request, Response, HTTPException, status, Query, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -24,6 +26,11 @@ os.makedirs("static/css", exist_ok=True)
 
 templates = Jinja2Templates(directory="templates")
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# Uploads directory
+UPLOADS_DIR = "/app/data/uploads" if os.path.exists("/app/data") else os.path.join(os.path.dirname(__file__), "data", "uploads")
+os.makedirs(UPLOADS_DIR, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
 
 SSO_SECRET = os.environ.get("JWT_SECRET", "thaid-super-sso-secret-prod-2026-secure").encode("utf-8")
 SUPER_ADMIN_EMAIL = "iamjotaki@gmail.com"
@@ -102,6 +109,7 @@ class ChatRequest(BaseModel):
     project_id: Optional[str] = "server"
     agent_mode: Optional[str] = "single"
     history: Optional[List[Dict[str, Any]]] = None
+    attachments: Optional[List[Dict[str, Any]]] = None
 
 class CreateAgyAccountRequest(BaseModel):
     name: str
@@ -407,6 +415,55 @@ async def quick_action(req: QuickActionRequest, request: Request):
     else:
         return {"error": f"Unknown action: {action}"}
 
+# ----------------- ATTACHMENT UPLOAD API -----------------
+
+@app.post("/api/agent/upload")
+async def upload_file(request: Request, file: UploadFile = File(...)):
+    user = get_current_user(request)
+    if not user or user["email"] != SUPER_ADMIN_EMAIL:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+
+    orig_name = file.filename or "upload"
+    ext = os.path.splitext(orig_name)[1].lower()
+    base_name = "".join(c for c in os.path.splitext(orig_name)[0] if c.isalnum() or c in "-_")[:40]
+    unique_filename = f"{int(time.time())}_{uuid.uuid4().hex[:6]}_{base_name}{ext}"
+    target_path = os.path.join(UPLOADS_DIR, unique_filename)
+
+    content = await file.read()
+    with open(target_path, "wb") as f:
+        f.write(content)
+
+    mime_type = file.content_type or "application/octet-stream"
+    is_image = mime_type.startswith("image/") or ext in [".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp"]
+    
+    b64_data = ""
+    if is_image and len(content) < 15 * 1024 * 1024:
+        b64_data = base64.b64encode(content).decode("utf-8")
+
+    is_text = False
+    text_content = ""
+    text_exts = [".txt", ".py", ".js", ".html", ".css", ".json", ".md", ".csv", ".sql", ".sh", ".yml", ".yaml", ".env"]
+    if ext in text_exts and len(content) < 500 * 1024:
+        is_text = True
+        try:
+            text_content = content.decode("utf-8", errors="ignore")
+        except Exception:
+            pass
+
+    return {
+        "success": True,
+        "filename": orig_name,
+        "saved_filename": unique_filename,
+        "url": f"/uploads/{unique_filename}",
+        "path": target_path,
+        "size": len(content),
+        "mime_type": mime_type,
+        "is_image": is_image,
+        "is_text": is_text,
+        "b64_data": b64_data,
+        "text_content": text_content[:5000] if is_text else ""
+    }
+
 # ----------------- AGENT CHAT STREAM -----------------
 
 @app.post("/api/agent/chat")
@@ -431,16 +488,32 @@ async def chat_stream(req: ChatRequest, request: Request):
             agent_storage.update_thread_title(thread_id, snippet)
 
     # Save user message
-    agent_storage.save_message(thread_id, role="user", content=req.prompt)
+    agent_storage.save_message(thread_id, role="user", content=req.prompt, attachments=req.attachments)
 
     # Retrieve history for context
     db_msgs = agent_storage.get_messages(thread_id)
     history = []
     for m in db_msgs[:-1]:  # all prior messages
         role = "user" if m["role"] == "user" else "model"
+        parts = []
+        if m.get("content"):
+            parts.append({"text": m["content"]})
+        if m.get("attachments") and isinstance(m["attachments"], list):
+            for att in m["attachments"]:
+                if att.get("is_image") and att.get("b64_data"):
+                    parts.append({
+                        "inline_data": {
+                            "mime_type": att.get("mime_type", "image/png"),
+                            "data": att["b64_data"]
+                        }
+                    })
+                elif att.get("is_text") and att.get("text_content"):
+                    parts.append({"text": f"\n\n[ไฟล์แนบ {att.get('filename')}]:\n{att.get('text_content')}"})
+        if not parts:
+            parts.append({"text": ""})
         history.append({
             "role": role,
-            "parts": [{"text": m["content"] or ""}]
+            "parts": parts
         })
 
     # Find project info
@@ -458,7 +531,8 @@ async def chat_stream(req: ChatRequest, request: Request):
                 messages=history,
                 user_prompt=req.prompt,
                 project_info=proj_info,
-                agent_mode=req.agent_mode or "single"
+                agent_mode=req.agent_mode or "single",
+                attachments=req.attachments
             ):
                 if event.get("type") == "text":
                     collected_text.append(event.get("content", ""))

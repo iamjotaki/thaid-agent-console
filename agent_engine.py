@@ -544,7 +544,8 @@ def find_agy_binary() -> Optional[str]:
 async def run_agy_cli_turn(
     messages: List[Dict[str, Any]],
     user_prompt: str,
-    project_info: Optional[Dict[str, Any]] = None
+    project_info: Optional[Dict[str, Any]] = None,
+    attachments: Optional[List[Dict[str, Any]]] = None
 ) -> AsyncGenerator[Dict[str, Any], None]:
     import agent_storage
     
@@ -591,9 +592,21 @@ async def run_agy_cli_turn(
     env["GOOGLE_GEMINI_BASE_URL"] = "http://127.0.0.1:19001"
     env["GEMINI_API_KEY"] = active_acc.get("token") or key_pool.get_key() or "placeholder"
     
+    effective_prompt = user_prompt
+    if attachments:
+        att_lines = ["\n\n[ไฟล์/รูปภาพที่ผู้ใช้แนบมาให้วิเคราะห์/ใช้งาน]:"]
+        for att in attachments:
+            name = att.get("filename") or "file"
+            path = att.get("path") or ""
+            mime = att.get("mime_type") or ""
+            att_lines.append(f"- ชื่อไฟล์: {name} (ประเภท: {mime}, Path ในเซิร์ฟเวอร์: {path})")
+            if att.get("is_text") and att.get("text_content"):
+                att_lines.append(f"  เนื้อหาไฟล์:\n```\n{att.get('text_content')}\n```")
+        effective_prompt += "\n".join(att_lines)
+
     cmd = [
         agy_bin,
-        "-p", user_prompt,
+        "-p", effective_prompt,
         "--output-format", "stream-json",
         "--dangerously-skip-permissions",
         "--settings", settings_json_path
@@ -696,12 +709,15 @@ async def run_agent_turn(
     messages: List[Dict[str, Any]],
     user_prompt: str,
     project_info: Optional[Dict[str, Any]] = None,
-    agent_mode: str = "single"
+    agent_mode: str = "single",
+    attachments: Optional[List[Dict[str, Any]]] = None
 ) -> AsyncGenerator[Dict[str, Any], None]:
     """
     Runs Agent turn with support for:
     - Single Fast Agent
     - Multi-Agent Team (Planner -> Coder/DevOps -> QA Reviewer)
+    - Antigravity CLI native mode
+    - Multi-modal attachments (Vision & files)
     - Multi-Key auto-rotation & SSE streaming
     """
     working_dir = project_info.get("working_dir", "/") if project_info else "/"
@@ -716,7 +732,7 @@ async def run_agent_turn(
 
     # MODE C: ANTIGRAVITY CLI ENGINE
     if agent_mode == "agy":
-        async for event in run_agy_cli_turn(messages, user_prompt, project_info):
+        async for event in run_agy_cli_turn(messages, user_prompt, project_info, attachments=attachments):
             yield event
         return
 
@@ -731,9 +747,28 @@ async def run_agent_turn(
             "message": "สถาปนิกกำลังวิเคราะห์คำขอและวางแผนงาน..."
         }
         planner_instruction = build_system_instruction(project_info, agent_role="planner")
+        planner_parts = [{"text": user_prompt}]
+        if attachments:
+            for att in attachments:
+                if att.get("is_image") and att.get("b64_data"):
+                    planner_parts.append({
+                        "inline_data": {
+                            "mime_type": att.get("mime_type", "image/png"),
+                            "data": att["b64_data"]
+                        }
+                    })
+                elif att.get("is_text") and att.get("text_content"):
+                    planner_parts.append({
+                        "text": f"\n\n[ไฟล์แนบ {att.get('filename')}]:\n{att.get('text_content')}"
+                    })
+                elif att.get("path"):
+                    planner_parts.append({
+                        "text": f"\n\n[ไฟล์แนบ]: {att.get('filename')} (Path: {att.get('path')})"
+                    })
+
         planner_payload = {
             "system_instruction": {"parts": [{"text": planner_instruction}]},
-            "contents": list(messages) + [{"role": "user", "parts": [{"text": user_prompt}]}],
+            "contents": list(messages) + [{"role": "user", "parts": planner_parts}],
             "generation_config": {"temperature": 0.3, "max_output_tokens": 1024}
         }
         try:
@@ -762,10 +797,29 @@ async def run_agent_turn(
         }
 
     # STANDARD OR CODER EXECUTION LOOP
+    user_parts = [{"text": active_prompt}]
+    if attachments:
+        for att in attachments:
+            if att.get("is_image") and att.get("b64_data"):
+                user_parts.append({
+                    "inline_data": {
+                        "mime_type": att.get("mime_type", "image/png"),
+                        "data": att["b64_data"]
+                    }
+                })
+            elif att.get("is_text") and att.get("text_content"):
+                user_parts.append({
+                    "text": f"\n\n[ไฟล์แนบ {att.get('filename')}]:\n{att.get('text_content')}"
+                })
+            elif att.get("path"):
+                user_parts.append({
+                    "text": f"\n\n[ไฟล์แนบบนเซิร์ฟเวอร์]: {att.get('filename')} (Path: {att.get('path')})"
+                })
+
     current_contents = list(messages)
     current_contents.append({
         "role": "user",
-        "parts": [{"text": active_prompt}]
+        "parts": user_parts
     })
 
     system_inst = build_system_instruction(project_info, agent_role="fullstack")
