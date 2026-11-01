@@ -103,6 +103,15 @@ class ChatRequest(BaseModel):
     agent_mode: Optional[str] = "single"
     history: Optional[List[Dict[str, Any]]] = None
 
+class CreateAgyAccountRequest(BaseModel):
+    name: str
+    email: Optional[str] = ""
+    auth_type: Optional[str] = "pool_rotation"
+    token: Optional[str] = ""
+
+class SwitchAgyAccountRequest(BaseModel):
+    account_id: str
+
 class QuickActionRequest(BaseModel):
     action: str
     target: Optional[str] = None
@@ -119,12 +128,16 @@ async def home(request: Request):
 
     projects = agent_storage.list_projects()
     key_status = get_key_pool_status()
+    agy_accounts = agent_storage.list_agy_accounts()
+    active_agy_account = agent_storage.get_active_agy_account()
 
     return templates.TemplateResponse(request=request, name="index.html", context={
         "user": user,
         "super_admin_email": SUPER_ADMIN_EMAIL,
         "projects": projects,
-        "key_status": key_status
+        "key_status": key_status,
+        "agy_accounts": agy_accounts,
+        "active_agy_account": active_agy_account
     })
 
 @app.get("/login", response_class=HTMLResponse)
@@ -225,6 +238,61 @@ async def get_key_pool(request: Request):
     if not user or user["email"] != SUPER_ADMIN_EMAIL:
         raise HTTPException(status_code=403, detail="Unauthorized")
     return get_key_pool_status()
+
+# ----------------- 9ROUTER AGY ACCOUNTS APIS -----------------
+
+@app.get("/api/agy/accounts")
+async def get_agy_accounts(request: Request):
+    user = get_current_user(request)
+    if not user or user["email"] != SUPER_ADMIN_EMAIL:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+    return {
+        "accounts": agent_storage.list_agy_accounts(),
+        "active_account": agent_storage.get_active_agy_account()
+    }
+
+@app.post("/api/agy/accounts")
+async def add_agy_account(req: CreateAgyAccountRequest, request: Request):
+    user = get_current_user(request)
+    if not user or user["email"] != SUPER_ADMIN_EMAIL:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+    acc = agent_storage.create_agy_account(
+        name=req.name,
+        email=req.email or "",
+        auth_type=req.auth_type or "pool_rotation",
+        token=req.token or ""
+    )
+    return {"success": True, "account": acc}
+
+@app.post("/api/agy/accounts/switch")
+async def switch_active_agy_account(req: SwitchAgyAccountRequest, request: Request):
+    user = get_current_user(request)
+    if not user or user["email"] != SUPER_ADMIN_EMAIL:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+    ok = agent_storage.switch_agy_account(req.account_id)
+    return {"success": ok, "active_account": agent_storage.get_active_agy_account()}
+
+@app.delete("/api/agy/accounts/{account_id}")
+async def remove_agy_account(account_id: str, request: Request):
+    user = get_current_user(request)
+    if not user or user["email"] != SUPER_ADMIN_EMAIL:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+    ok = agent_storage.delete_agy_account(account_id)
+    return {"success": ok, "active_account": agent_storage.get_active_agy_account()}
+
+@app.get("/api/agy/status")
+async def get_agy_status(request: Request):
+    user = get_current_user(request)
+    if not user or user["email"] != SUPER_ADMIN_EMAIL:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+    cli_installed = os.path.exists("/usr/local/bin/agy") or shutil.which("agy") is not None
+    active_acc = agent_storage.get_active_agy_account()
+    return {
+        "cli_installed": cli_installed,
+        "version": "1.4.12",
+        "active_account": active_acc,
+        "total_accounts": len(agent_storage.list_agy_accounts())
+    }
 
 # ----------------- SYSTEM & ACTIONS -----------------
 

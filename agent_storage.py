@@ -65,6 +65,21 @@ def init_db():
         )
         """)
 
+        # 9router-style Antigravity Accounts
+        c.execute("""
+        CREATE TABLE IF NOT EXISTS agy_accounts (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            email TEXT,
+            auth_type TEXT DEFAULT 'pool_rotation',
+            token TEXT,
+            profile_dir TEXT,
+            is_active INTEGER DEFAULT 0,
+            created_at INTEGER,
+            last_used_at INTEGER
+        )
+        """)
+
         # Seed default projects if none exist
         c.execute("SELECT COUNT(*) FROM projects")
         if c.fetchone()[0] == 0:
@@ -93,6 +108,19 @@ def init_db():
                 INSERT INTO threads (id, project_id, title, agent_mode, created_at, updated_at)
                 VALUES (?, ?, ?, ?, ?, ?)
             """, (tid, "server", "⚡ สนทนาเริ่มต้น (DevOps & Server)", "single", now, now))
+
+        # Seed default AGY accounts if none exist
+        c.execute("SELECT COUNT(*) FROM agy_accounts")
+        if c.fetchone()[0] == 0:
+            now = int(time.time())
+            c.execute("""
+                INSERT INTO agy_accounts (id, name, email, auth_type, token, profile_dir, is_active, created_at, last_used_at)
+                VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)
+            """, ("acc_jotaki_pool", "Jotaki (47 Keys Auto-Rotation)", "iamjotaki@gmail.com", "pool_rotation", "", "/app/data/agy_profiles/acc_jotaki_pool", now, now))
+            c.execute("""
+                INSERT INTO agy_accounts (id, name, email, auth_type, token, profile_dir, is_active, created_at, last_used_at)
+                VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)
+            """, ("acc_thaid_work", "ThaiD Enterprise Workspace", "admin@thaid.online", "pool_rotation", "", "/app/data/agy_profiles/acc_thaid_work", now, now))
 
         conn.commit()
 
@@ -223,3 +251,124 @@ def save_message(thread_id: str, role: str, content: str, tool_calls: Optional[A
         """, (thread_id, role, content, tc_json, now))
         c.execute("UPDATE threads SET updated_at = ? WHERE id = ?", (now, thread_id))
         conn.commit()
+
+# ----------------- 9ROUTER AGY ACCOUNTS CRUD -----------------
+
+def get_profiles_base_dir() -> str:
+    if os.path.exists("/app/data"):
+        d = "/app/data/agy_profiles"
+    elif os.path.exists("/var/lib/coolify/agent_data"):
+        d = "/var/lib/coolify/agent_data/agy_profiles"
+    else:
+        d = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "agy_profiles")
+    os.makedirs(d, exist_ok=True)
+    return d
+
+def ensure_agy_profile(account_id: str, auth_type: str = "pool_rotation", token: str = "") -> str:
+    base = get_profiles_base_dir()
+    pdir = os.path.join(base, account_id)
+    cli_dir = os.path.join(pdir, ".gemini", "antigravity-cli")
+    os.makedirs(cli_dir, exist_ok=True)
+    
+    settings_file = os.path.join(cli_dir, "settings.json")
+    if not os.path.exists(settings_file):
+        with open(settings_file, "w", encoding="utf-8") as f:
+            json.dump({"modelProvider": "gemini"}, f, indent=2)
+    return pdir
+
+def list_agy_accounts() -> List[Dict[str, Any]]:
+    init_db()
+    with get_db() as conn:
+        c = conn.cursor()
+        c.execute("SELECT * FROM agy_accounts ORDER BY is_active DESC, created_at ASC")
+        rows = [dict(r) for r in c.fetchall()]
+        for r in rows:
+            ensure_agy_profile(r["id"], r.get("auth_type", "pool_rotation"), r.get("token", ""))
+        return rows
+
+def get_active_agy_account() -> Optional[Dict[str, Any]]:
+    init_db()
+    with get_db() as conn:
+        c = conn.cursor()
+        c.execute("SELECT * FROM agy_accounts WHERE is_active = 1 LIMIT 1")
+        row = c.fetchone()
+        if row:
+            d = dict(row)
+            ensure_agy_profile(d["id"], d.get("auth_type", "pool_rotation"), d.get("token", ""))
+            return d
+        
+        # Fallback to first account
+        c.execute("SELECT * FROM agy_accounts ORDER BY created_at ASC LIMIT 1")
+        row = c.fetchone()
+        if row:
+            d = dict(row)
+            c.execute("UPDATE agy_accounts SET is_active = 1 WHERE id = ?", (d["id"],))
+            conn.commit()
+            d["is_active"] = 1
+            ensure_agy_profile(d["id"], d.get("auth_type", "pool_rotation"), d.get("token", ""))
+            return d
+        return None
+
+def switch_agy_account(account_id: str) -> bool:
+    init_db()
+    now = int(time.time())
+    with get_db() as conn:
+        c = conn.cursor()
+        c.execute("UPDATE agy_accounts SET is_active = 0")
+        c.execute("UPDATE agy_accounts SET is_active = 1, last_used_at = ? WHERE id = ?", (now, account_id))
+        conn.commit()
+        return c.rowcount > 0
+
+def create_agy_account(name: str, email: str = "", auth_type: str = "pool_rotation", token: str = "") -> Dict[str, Any]:
+    init_db()
+    clean_id = "acc_" + re.sub(r'[^a-zA-Z0-9]+', '_', name.lower()).strip('_')
+    if len(clean_id) < 5 or clean_id == "acc_":
+        clean_id = f"acc_{str(uuid.uuid4())[:8]}"
+    
+    # Check if exists
+    with get_db() as conn:
+        c = conn.cursor()
+        c.execute("SELECT id FROM agy_accounts WHERE id = ?", (clean_id,))
+        if c.fetchone():
+            clean_id = f"{clean_id}_{str(uuid.uuid4())[:4]}"
+            
+        pdir = ensure_agy_profile(clean_id, auth_type, token)
+        now = int(time.time())
+        c.execute("""
+            INSERT INTO agy_accounts (id, name, email, auth_type, token, profile_dir, is_active, created_at, last_used_at)
+            VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)
+        """, (clean_id, name, email, auth_type, token, pdir, now, now))
+        conn.commit()
+        
+    return {
+        "id": clean_id,
+        "name": name,
+        "email": email,
+        "auth_type": auth_type,
+        "token": token,
+        "profile_dir": pdir,
+        "is_active": 0
+    }
+
+def delete_agy_account(account_id: str) -> bool:
+    init_db()
+    with get_db() as conn:
+        c = conn.cursor()
+        # Do not delete if only 1 account remains
+        c.execute("SELECT COUNT(*) FROM agy_accounts")
+        if c.fetchone()[0] <= 1:
+            return False
+            
+        c.execute("SELECT is_active FROM agy_accounts WHERE id = ?", (account_id,))
+        row = c.fetchone()
+        was_active = row and row[0] == 1
+        
+        c.execute("DELETE FROM agy_accounts WHERE id = ?", (account_id,))
+        
+        if was_active:
+            # Activate another
+            c.execute("UPDATE agy_accounts SET is_active = 1 WHERE id IN (SELECT id FROM agy_accounts LIMIT 1)")
+            
+        conn.commit()
+        return True
+

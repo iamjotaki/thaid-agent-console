@@ -4,6 +4,10 @@ import subprocess
 import shutil
 import time
 import asyncio
+import http.server
+import socketserver
+import threading
+import urllib.request
 from typing import AsyncGenerator, Dict, Any, List, Optional
 import httpx
 
@@ -437,6 +441,257 @@ def build_system_instruction(project_info: Optional[Dict[str, Any]] = None, agen
    - สรุปผลการทำงานให้ชัดเจนเสมอว่าได้สร้างไฟล์อะไร รันคอนเทนเนอร์อะไร หรือเกิดปัญหาใด
    - แสดง URL โดเมนที่เข้าใช้งานได้ หรือคำสั่งถัดไปให้ผู้ใช้เสมอ ห้ามจบเทิร์นโดยไม่สรุปข้อความ"""
 
+# ----------------------------------------------------
+# 5. ANTIGRAVITY CLI PROXY & EXECUTION RUNNER
+# ----------------------------------------------------
+_proxy_server_started = False
+_proxy_lock = threading.Lock()
+
+class _GeminiProxyHandler(http.server.BaseHTTPRequestHandler):
+    def do_POST(self):
+        content_length = int(self.headers.get('Content-Length', 0))
+        body = self.rfile.read(content_length)
+
+        path = self.path
+        target_path = path.replace("gemini-3.1-pro-preview", "gemini-3-flash-preview") \
+                          .replace("gemini-3.1-flash-lite-preview", "gemini-3-flash-preview") \
+                          .replace("gemini-3.1-pro", "gemini-3-flash-preview") \
+                          .replace("gemini-3.8-flash-low", "gemini-3-flash-preview")
+
+        try:
+            body_json = json.loads(body.decode('utf-8'))
+            if "generationConfig" in body_json and "thinkingConfig" in body_json["generationConfig"]:
+                del body_json["generationConfig"]["thinkingConfig"]
+            body = json.dumps(body_json).encode('utf-8')
+        except Exception:
+            pass
+
+        sep = "&" if "?" in target_path else "?"
+        success = False
+        last_resp_code = 500
+        last_resp_data = b""
+
+        for _ in range(15):
+            k = key_pool.get_key()
+            if not k:
+                break
+            upstream_url = f"https://generativelanguage.googleapis.com{target_path}{sep}key={k}"
+            req = urllib.request.Request(upstream_url, data=body, headers={"Content-Type": "application/json"})
+            try:
+                with urllib.request.urlopen(req, timeout=25) as resp:
+                    last_resp_code = resp.status
+                    last_resp_data = resp.read()
+                    self.send_response(resp.status)
+                    for h, v in resp.getheaders():
+                        if h.lower() in ["content-type", "cache-control", "x-accel-buffering"]:
+                            self.send_header(h, v)
+                    self.end_headers()
+                    self.wfile.write(last_resp_data)
+                    success = True
+                    break
+            except urllib.error.HTTPError as e:
+                last_resp_code = e.code
+                last_resp_data = e.read()
+                if e.code == 429:
+                    key_pool.report_rate_limit(k, cooldown_seconds=60.0)
+                    continue
+                else:
+                    break
+            except Exception as ex:
+                last_resp_data = str(ex).encode('utf-8')
+                break
+
+        if not success:
+            self.send_response(last_resp_code)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(last_resp_data)
+
+    def log_message(self, format, *args):
+        pass
+
+def start_gemini_proxy_server_if_needed(port: int = 19001):
+    global _proxy_server_started
+    with _proxy_lock:
+        if _proxy_server_started:
+            return
+        try:
+            class ReusableTCPServer(socketserver.TCPServer):
+                allow_reuse_address = True
+            
+            httpd = ReusableTCPServer(("127.0.0.1", port), _GeminiProxyHandler)
+            t = threading.Thread(target=httpd.serve_forever, daemon=True)
+            t.start()
+            _proxy_server_started = True
+            print(f"[GeminiProxy] Background proxy started on 127.0.0.1:{port}")
+        except Exception as e:
+            print(f"[GeminiProxy] Server already running or bind note: {e}")
+            _proxy_server_started = True
+
+def find_agy_binary() -> Optional[str]:
+    candidates = [
+        "/usr/local/bin/agy",
+        shutil.which("agy"),
+        os.path.expanduser("~/.gemini/bin/agy"),
+        os.path.expanduser("~/.gemini/bin/agy.exe"),
+        "C:\\Users\\User\\.gemini\\bin\\agy.exe",
+    ]
+    for c in candidates:
+        if c and os.path.exists(c) and os.path.isfile(c):
+            return c
+    return None
+
+async def run_agy_cli_turn(
+    messages: List[Dict[str, Any]],
+    user_prompt: str,
+    project_info: Optional[Dict[str, Any]] = None
+) -> AsyncGenerator[Dict[str, Any], None]:
+    import agent_storage
+    
+    start_gemini_proxy_server_if_needed(19001)
+    
+    active_acc = agent_storage.get_active_agy_account()
+    if not active_acc:
+        active_acc = {
+            "id": "acc_default",
+            "name": "Jotaki (Default)",
+            "auth_type": "pool_rotation",
+            "token": "",
+            "profile_dir": "/app/data/agy_profiles/acc_default"
+        }
+        
+    pdir = agent_storage.ensure_agy_profile(
+        active_acc["id"],
+        active_acc.get("auth_type", "pool_rotation"),
+        active_acc.get("token", "")
+    )
+    
+    agy_bin = find_agy_binary()
+    if not agy_bin:
+        yield {
+            "type": "error",
+            "content": "ไม่พบโปรแกรม Antigravity CLI (/usr/local/bin/agy) บนเซิร์ฟเวอร์ กรุณาตรวจสอบการติดตั้ง"
+        }
+        return
+
+    acc_name = active_acc.get("name", "Default")
+    auth_mode_label = "Auto-Rotation 47 Keys" if active_acc.get("auth_type") == "pool_rotation" else "Dedicated Key/OAuth"
+    
+    yield {
+        "type": "agent_badge",
+        "role": f"🚀 Antigravity CLI [{acc_name}]",
+        "message": f"เชื่อมต่อ Antigravity CLI v1.4.12 • บัญชี: {acc_name} ({auth_mode_label})"
+    }
+    
+    working_dir = project_info.get("working_dir", "/") if project_info else "/"
+    settings_json_path = os.path.join(pdir, ".gemini", "antigravity-cli", "settings.json")
+    
+    env = os.environ.copy()
+    env["HOME"] = pdir
+    env["GOOGLE_GEMINI_BASE_URL"] = "http://127.0.0.1:19001"
+    env["GEMINI_API_KEY"] = active_acc.get("token") or key_pool.get_key() or "placeholder"
+    
+    cmd = [
+        agy_bin,
+        "-p", user_prompt,
+        "--output-format", "stream-json",
+        "--dangerously-skip-permissions",
+        "--settings", settings_json_path
+    ]
+    if working_dir and working_dir != "/" and os.path.exists(working_dir):
+        cmd.extend(["--add-dir", working_dir])
+        
+    start_time = time.time()
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            env=env,
+            cwd=working_dir if os.path.exists(working_dir) else "/"
+        )
+    except Exception as e:
+        yield {"type": "error", "content": f"Failed to spawn agy CLI: {str(e)}"}
+        return
+
+    streamed_text = False
+    step_num = 0
+
+    while True:
+        line = await proc.stdout.readline()
+        if not line:
+            break
+        line_str = line.decode('utf-8', errors='ignore').strip()
+        if not line_str:
+            continue
+            
+        try:
+            ev = json.loads(line_str)
+        except Exception:
+            continue
+            
+        event_name = ev.get("event")
+        
+        if event_name == "init":
+            step_num += 1
+            yield {
+                "type": "step_progress",
+                "step": step_num,
+                "max_steps": 15,
+                "agent_mode": "agy"
+            }
+        elif event_name == "step_update":
+            su = ev.get("step_update", {})
+            stype = su.get("step_type")
+            if stype == "agent_response":
+                delta = su.get("text_delta") or ""
+                if delta:
+                    streamed_text = True
+                    yield {"type": "text", "content": delta}
+            elif stype == "tool_call":
+                tc = su.get("tool_call", {})
+                yield {
+                    "type": "tool_start",
+                    "name": tc.get("name", "execute_tool"),
+                    "args": tc.get("arguments", {})
+                }
+            elif stype == "tool_result":
+                tr = su.get("tool_result", {})
+                yield {
+                    "type": "tool_result",
+                    "result": tr.get("result", "")
+                }
+            elif stype == "error_message":
+                err_text = su.get("error") or su.get("message") or "CLI step error"
+                yield {"type": "error", "content": f"AGY Error: {err_text}"}
+        elif event_name == "result":
+            res = ev.get("result", {})
+            status = res.get("status")
+            if status == "SUCCESS":
+                resp_text = res.get("response", "")
+                if not streamed_text and resp_text:
+                    yield {"type": "text", "content": resp_text}
+                elapsed = round(time.time() - start_time, 1)
+                yield {
+                    "type": "done",
+                    "status": "finished",
+                    "duration": elapsed,
+                    "model": "Antigravity CLI v1.4.12",
+                    "account": acc_name
+                }
+            else:
+                err_msg = res.get("error", "CLI Execution Failed")
+                yield {"type": "error", "content": f"AGY Result Error: {err_msg}"}
+
+    await proc.wait()
+    if proc.returncode != 0 and not streamed_text:
+        stderr_bytes = await proc.stderr.read()
+        err_msg = stderr_bytes.decode('utf-8', errors='ignore').strip()
+        if err_msg:
+            yield {"type": "error", "content": f"CLI Exited with code {proc.returncode}: {err_msg[:300]}"}
+
+
+
 async def run_agent_turn(
     messages: List[Dict[str, Any]],
     user_prompt: str,
@@ -458,6 +713,12 @@ async def run_agent_turn(
         "active_keys": pool_stat["active_keys"],
         "total_keys": pool_stat["total_keys"]
     }
+
+    # MODE C: ANTIGRAVITY CLI ENGINE
+    if agent_mode == "agy":
+        async for event in run_agy_cli_turn(messages, user_prompt, project_info):
+            yield event
+        return
 
     active_prompt = user_prompt
 

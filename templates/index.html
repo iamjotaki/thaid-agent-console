@@ -386,13 +386,26 @@
                     </span>
                 </div>
 
-                <!-- Agent Mode Switcher (Single vs Multi-Agent Team) -->
-                <div class="flex items-center gap-1 bg-white dark:bg-stone-900 border border-black/[0.08] dark:border-white/10 rounded-full p-0.5 shadow-2xs">
-                    <button id="mode-btn-single" onclick="setAgentMode('single')" class="px-2.5 py-1 rounded-full text-xs font-bold bg-[#0569ff] text-white shadow-2xs transition cursor-pointer" title="ตอบรวดเร็ว เหมาะกับการสั่งรัน Tool หรือสอบถามสถานะทั่วไป">
-                        ⚡ เดี่ยว (Fast)
-                    </button>
-                    <button id="mode-btn-team" onclick="setAgentMode('team')" class="px-2.5 py-1 rounded-full text-xs font-bold text-stone-500 hover:text-stone-800 dark:hover:text-white transition cursor-pointer" title="ทำงานเป็นทีม: Planner วางแผน ➔ Coder ลงมือเขียน/รัน ➔ QA ตรวจสอบ เหมาะกับงานใหญ่หรือเขียนโค้ด">
-                        🤝 ทีม Agent (Planner + Coder)
+                <!-- Agent Mode Switcher (Single vs Multi-Agent Team vs Antigravity CLI) -->
+                <div class="flex items-center gap-1.5 flex-wrap">
+                    <div class="flex items-center gap-1 bg-white dark:bg-stone-900 border border-black/[0.08] dark:border-white/10 rounded-full p-0.5 shadow-2xs">
+                        <button id="mode-btn-single" onclick="setAgentMode('single')" class="px-2.5 py-1 rounded-full text-xs font-bold bg-[#0569ff] text-white shadow-2xs transition cursor-pointer" title="ตอบรวดเร็ว เหมาะกับการสั่งรัน Tool หรือสอบถามสถานะทั่วไป">
+                            ⚡ เดี่ยว (Fast)
+                        </button>
+                        <button id="mode-btn-team" onclick="setAgentMode('team')" class="px-2.5 py-1 rounded-full text-xs font-bold text-stone-500 hover:text-stone-800 dark:hover:text-white transition cursor-pointer" title="ทำงานเป็นทีม: Planner วางแผน ➔ Coder ลงมือเขียน/รัน ➔ QA ตรวจสอบ">
+                            🤝 ทีม Agent
+                        </button>
+                        <button id="mode-btn-agy" onclick="setAgentMode('agy')" class="px-2.5 py-1 rounded-full text-xs font-bold text-stone-500 hover:text-stone-800 dark:hover:text-white transition cursor-pointer" title="รันผ่าน Official Antigravity CLI (agy v1.4.12) พร้อมระบบ 9router Account Manager">
+                            🚀 Antigravity CLI
+                        </button>
+                    </div>
+
+                    <!-- 9router-style Account Pill -->
+                    <button id="agy-account-pill" onclick="openAgyAccountModal()" class="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/50 hover:bg-amber-100 transition shadow-2xs cursor-pointer" title="คลิกเพื่อจัดการหรือสลับบัญชี Antigravity (9router Style)">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <i class="fa-solid fa-user-circle text-amber-600 text-xs"></i>
+                        <span id="current-active-account-name">{{ active_agy_account.name if active_agy_account else "Jotaki (Default)" }}</span>
+                        <i class="fa-solid fa-chevron-down text-[10px] ml-0.5 opacity-70"></i>
                     </button>
                 </div>
 
@@ -506,6 +519,86 @@
         </div>
     </div>
 
+    <!-- 3.1 MODAL: 9ROUTER ANTIGRAVITY ACCOUNT MANAGER -->
+    <div id="agyAccountsModal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <!-- Modal Header -->
+            <div class="flex items-center justify-between pb-3 border-b border-stone-100 dark:border-stone-800">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-500 text-white flex items-center justify-center font-bold text-lg shadow-md">
+                        <i class="fa-solid fa-users-gear"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
+                            <span>Antigravity CLI Accounts</span>
+                            <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 font-bold">9router Mode</span>
+                        </h3>
+                        <p class="text-[11px] text-stone-500 dark:text-stone-400">สลับและจำ Session บัญชี Antigravity แยกอิสระ 100%</p>
+                    </div>
+                </div>
+                <button onclick="closeAgyAccountModal()" class="w-8 h-8 rounded-full hover:bg-stone-100 dark:hover:bg-stone-800 flex items-center justify-center text-stone-400 hover:text-stone-700 transition cursor-pointer">
+                    <i class="fa-solid fa-xmark text-sm"></i>
+                </button>
+            </div>
+
+            <!-- Account List Section -->
+            <div>
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-bold text-stone-600 dark:text-stone-300 flex items-center gap-1.5">
+                        <i class="fa-solid fa-list-check text-amber-500"></i> บัญชีที่เชื่อมต่อไว้:
+                    </span>
+                    <button onclick="toggleAddAccountForm()" class="text-xs font-bold text-[#0569ff] hover:underline flex items-center gap-1 cursor-pointer">
+                        <i class="fa-solid fa-plus-circle"></i> + เพิ่ม Account ใหม่
+                    </button>
+                </div>
+                <div id="agy-accounts-list" class="space-y-2 max-h-56 overflow-y-auto pr-1">
+                    <!-- Populated dynamically via loadAgyAccounts() -->
+                </div>
+            </div>
+
+            <!-- Add Account Collapsible Form -->
+            <div id="add-account-form-container" class="hidden p-3.5 rounded-2xl bg-stone-50 dark:bg-stone-800/60 border border-stone-200 dark:border-stone-700 space-y-2.5">
+                <h4 class="text-xs font-bold text-stone-800 dark:text-stone-200 flex items-center gap-1.5">
+                    <i class="fa-solid fa-user-plus text-[#0569ff]"></i> กรอกข้อมูลบัญชีใหม่
+                </h4>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-[10px] font-bold text-stone-500 mb-1">ชื่อบัญชี (Account Label)</label>
+                        <input type="text" id="new-acc-name" placeholder="เช่น Jotaki Pro, Studio 2" class="w-full bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-xl px-2.5 py-1.5 text-xs focus:outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-stone-500 mb-1">อีเมลบัญชี (ไม่บังคับ)</label>
+                        <input type="email" id="new-acc-email" placeholder="iamjotaki@gmail.com" class="w-full bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-xl px-2.5 py-1.5 text-xs focus:outline-none focus:border-blue-500">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-stone-500 mb-1">รูปแบบการยืนยันตัวตน (Auth Mode)</label>
+                    <select id="new-acc-auth-type" onchange="onAuthTypeChange()" class="w-full bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-xl px-2.5 py-1.5 text-xs focus:outline-none focus:border-blue-500">
+                        <option value="pool_rotation">⚡ Auto-Rotation 47 Keys (แชร์พูล Vault อัตโนมัติ ปลอดภัย ไม่ติด Quota)</option>
+                        <option value="api_key">🔑 Custom Gemini API Key (คีย์เฉพาะบัญชีนี้)</option>
+                        <option value="oauth">🌐 Google Account (CLI OAuth Profile)</option>
+                    </select>
+                </div>
+                <div id="new-acc-token-field" class="hidden">
+                    <label class="block text-[10px] font-bold text-stone-500 mb-1">ใส่ Gemini API Key (AIzaSy...)</label>
+                    <input type="password" id="new-acc-token" placeholder="AIzaSy..." class="w-full bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-xl px-2.5 py-1.5 text-xs font-mono focus:outline-none focus:border-blue-500">
+                </div>
+                <div class="flex items-center justify-end gap-2 pt-1">
+                    <button type="button" onclick="toggleAddAccountForm()" class="px-3 py-1 rounded-xl border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:bg-stone-100 text-xs cursor-pointer">ยกเลิก</button>
+                    <button type="button" onclick="submitNewAgyAccount()" class="px-4 py-1 rounded-xl bg-[#0569ff] text-white font-bold hover:bg-blue-600 text-xs cursor-pointer shadow-xs">บันทึกบัญชี</button>
+                </div>
+            </div>
+
+            <!-- Footer / Status Note -->
+            <div class="pt-3 border-t border-stone-100 dark:border-stone-800 flex items-center justify-between text-[11px] text-stone-400">
+                <span class="flex items-center gap-1.5">
+                    <i class="fa-solid fa-lock text-emerald-500"></i> จำ Auth ถาวรในไดเรกทอรีโปรไฟล์
+                </span>
+                <span class="font-mono text-[10px] text-stone-400">CLI Native ARM64 • v1.4.12</span>
+            </div>
+        </div>
+    </div>
+
     <!-- 4. CLIENT LOGIC -->
     <script>
         const chatContainer = document.getElementById('chat-messages');
@@ -558,13 +651,204 @@
             currentAgentMode = mode;
             const btnSingle = document.getElementById('mode-btn-single');
             const btnTeam = document.getElementById('mode-btn-team');
+            const btnAgy = document.getElementById('mode-btn-agy');
+            const agyPill = document.getElementById('agy-account-pill');
 
-            if (mode === 'team') {
+            const inactiveClass = "px-2.5 py-1 rounded-full text-xs font-bold text-stone-500 hover:text-stone-800 dark:hover:text-white transition cursor-pointer";
+
+            if (mode === 'agy') {
+                btnAgy.className = "px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500 text-white shadow-2xs transition cursor-pointer";
+                btnSingle.className = inactiveClass;
+                btnTeam.className = inactiveClass;
+                if (agyPill) {
+                    agyPill.classList.remove('opacity-60');
+                    agyPill.classList.add('ring-2', 'ring-amber-400');
+                }
+            } else if (mode === 'team') {
                 btnTeam.className = "px-2.5 py-1 rounded-full text-xs font-bold bg-[#0569ff] text-white shadow-2xs transition cursor-pointer";
-                btnSingle.className = "px-2.5 py-1 rounded-full text-xs font-bold text-stone-500 hover:text-stone-800 dark:hover:text-white transition cursor-pointer";
+                btnSingle.className = inactiveClass;
+                btnAgy.className = inactiveClass;
+                if (agyPill) {
+                    agyPill.classList.add('opacity-60');
+                    agyPill.classList.remove('ring-2', 'ring-amber-400');
+                }
             } else {
                 btnSingle.className = "px-2.5 py-1 rounded-full text-xs font-bold bg-[#0569ff] text-white shadow-2xs transition cursor-pointer";
-                btnTeam.className = "px-2.5 py-1 rounded-full text-xs font-bold text-stone-500 hover:text-stone-800 dark:hover:text-white transition cursor-pointer";
+                btnTeam.className = inactiveClass;
+                btnAgy.className = inactiveClass;
+                if (agyPill) {
+                    agyPill.classList.add('opacity-60');
+                    agyPill.classList.remove('ring-2', 'ring-amber-400');
+                }
+            }
+        }
+
+        let agyAccountsCache = [];
+
+        async function openAgyAccountModal() {
+            document.getElementById('agyAccountsModal').classList.remove('hidden');
+            await loadAgyAccounts();
+        }
+
+        function closeAgyAccountModal() {
+            document.getElementById('agyAccountsModal').classList.add('hidden');
+            document.getElementById('add-account-form-container').classList.add('hidden');
+        }
+
+        async function loadAgyAccounts() {
+            try {
+                const res = await fetch('/api/agy/accounts');
+                if (!res.ok) return;
+                const data = await res.json();
+                agyAccountsCache = data.accounts || [];
+                const activeAcc = data.active_account;
+
+                if (activeAcc) {
+                    const nameEl = document.getElementById('current-active-account-name');
+                    if (nameEl) nameEl.innerText = activeAcc.name;
+                }
+
+                renderAgyAccountsList(agyAccountsCache, activeAcc ? activeAcc.id : null);
+            } catch (e) {
+                console.error("Failed to load AGY accounts:", e);
+            }
+        }
+
+        function renderAgyAccountsList(accounts, activeId) {
+            const listEl = document.getElementById('agy-accounts-list');
+            if (!listEl) return;
+
+            if (!accounts || accounts.length === 0) {
+                listEl.innerHTML = '<div class="text-xs text-stone-400 text-center py-4">ยังไม่มีบัญชีที่บันทึกไว้</div>';
+                return;
+            }
+
+            listEl.innerHTML = accounts.map(acc => {
+                const isActive = acc.id === activeId || acc.is_active === 1;
+                const authLabel = acc.auth_type === 'pool_rotation' ? '⚡ 47 Keys Pool' : (acc.auth_type === 'api_key' ? '🔑 Custom API Key' : '🌐 Google OAuth');
+                const badgeColor = acc.auth_type === 'pool_rotation' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300' : (acc.auth_type === 'api_key' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300' : 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300');
+
+                return `
+                    <div class="p-3 rounded-2xl border ${isActive ? 'border-amber-400 bg-amber-50/60 dark:bg-amber-950/30' : 'border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900'} flex items-center justify-between transition">
+                        <div class="flex items-center gap-2.5 min-w-0">
+                            <div class="w-8 h-8 rounded-xl ${isActive ? 'bg-amber-500 text-white' : 'bg-stone-100 dark:bg-stone-800 text-stone-500'} flex items-center justify-center font-bold text-xs shrink-0">
+                                ${isActive ? '<i class="fa-solid fa-check"></i>' : '<i class="fa-solid fa-user"></i>'}
+                            </div>
+                            <div class="min-w-0">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-xs font-bold text-stone-900 dark:text-stone-100 truncate">${escapeHtml(acc.name)}</span>
+                                    <span class="text-[9px] font-semibold px-2 py-0.5 rounded-full ${badgeColor}">${authLabel}</span>
+                                </div>
+                                <div class="text-[10px] text-stone-400 font-mono truncate">${escapeHtml(acc.email || acc.profile_dir || '')}</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-1.5 shrink-0 ml-2">
+                            ${isActive ? `
+                                <span class="px-2.5 py-1 rounded-xl bg-amber-500 text-white font-bold text-[10px] shadow-2xs">
+                                    ใช้งานอยู่
+                                </span>
+                            ` : `
+                                <button onclick="switchAgyAccount('${acc.id}')" class="px-2.5 py-1 rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:border-amber-400 hover:text-amber-600 font-bold text-[10px] transition cursor-pointer shadow-2xs">
+                                    สลับใช้
+                                </button>
+                                ${accounts.length > 1 ? `
+                                    <button onclick="deleteAgyAccount('${acc.id}')" class="w-6 h-6 rounded-lg text-stone-300 hover:text-red-500 flex items-center justify-center text-xs transition cursor-pointer" title="ลบบัญชีนี้">
+                                        <i class="fa-solid fa-trash-can"></i>
+                                    </button>
+                                ` : ''}
+                            `}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function switchAgyAccount(accountId) {
+            try {
+                const res = await fetch('/api/agy/accounts/switch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ account_id: accountId })
+                });
+                const d = await res.json();
+                if (d.success) {
+                    if (d.active_account) {
+                        document.getElementById('current-active-account-name').innerText = d.active_account.name;
+                    }
+                    await loadAgyAccounts();
+                    setAgentMode('agy');
+                }
+            } catch (e) {
+                alert("Failed to switch account: " + e.message);
+            }
+        }
+
+        function toggleAddAccountForm() {
+            const form = document.getElementById('add-account-form-container');
+            form.classList.toggle('hidden');
+        }
+
+        function onAuthTypeChange() {
+            const t = document.getElementById('new-acc-auth-type').value;
+            const tokenField = document.getElementById('new-acc-token-field');
+            if (t === 'api_key') {
+                tokenField.classList.remove('hidden');
+            } else {
+                tokenField.classList.add('hidden');
+            }
+        }
+
+        async function submitNewAgyAccount() {
+            const name = document.getElementById('new-acc-name').value.trim();
+            const email = document.getElementById('new-acc-email').value.trim();
+            const authType = document.getElementById('new-acc-auth-type').value;
+            const token = document.getElementById('new-acc-token').value.trim();
+
+            if (!name) {
+                alert("กรุณาใส่ชื่อบัญชี (Account Label)");
+                return;
+            }
+            if (authType === 'api_key' && !token) {
+                alert("กรุณาใส่ API Key สำหรับโหมด Custom Gemini API Key");
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/agy/accounts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: name,
+                        email: email,
+                        auth_type: authType,
+                        token: token
+                    })
+                });
+                const d = await res.json();
+                if (d.success) {
+                    document.getElementById('new-acc-name').value = '';
+                    document.getElementById('new-acc-email').value = '';
+                    document.getElementById('new-acc-token').value = '';
+                    toggleAddAccountForm();
+                    await loadAgyAccounts();
+                } else {
+                    alert("บันทึกไม่สำเร็จ: " + (d.detail || "Unknown error"));
+                }
+            } catch (e) {
+                alert("เกิดข้อผิดพลาด: " + e.message);
+            }
+        }
+
+        async function deleteAgyAccount(accountId) {
+            if (!confirm("คุณต้องการลบบัญชีนี้ออกจากระบบใช่หรือไม่?")) return;
+            try {
+                const res = await fetch(`/api/agy/accounts/${accountId}`, { method: 'DELETE' });
+                const d = await res.json();
+                if (d.success) {
+                    await loadAgyAccounts();
+                }
+            } catch (e) {
+                alert("ลบไม่สำเร็จ: " + e.message);
             }
         }
 
@@ -587,6 +871,7 @@
             }
         }
         refreshMetrics();
+        loadAgyAccounts();
         setInterval(refreshMetrics, 15000);
 
         // Load Threads
@@ -816,14 +1101,15 @@
             appendMessage('user', prompt);
 
             statusBar.classList.remove('hidden');
-            statusText.innerText = currentAgentMode === 'team' ? "ทีม Agent กำลังวิเคราะห์และวางแผนงาน..." : "Agent กำลังวิเคราะห์คำสั่ง...";
+            statusText.innerText = currentAgentMode === 'agy' ? "Antigravity CLI กำลังรันคำสั่ง..." : (currentAgentMode === 'team' ? "ทีม Agent กำลังวิเคราะห์และวางแผนงาน..." : "Agent กำลังวิเคราะห์คำสั่ง...");
 
             // Prepare bot container for streaming with live status card
             const botMsgDiv = document.createElement('div');
             botMsgDiv.className = "flex gap-3 justify-start";
+            const botIcon = currentAgentMode === 'agy' ? '🚀' : '⚡';
             botMsgDiv.innerHTML = `
-                <div class="w-8 h-8 rounded-2xl bg-stone-900 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-xs">
-                    ⚡
+                <div class="w-8 h-8 rounded-2xl ${currentAgentMode === 'agy' ? 'bg-amber-600' : 'bg-stone-900'} text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-xs">
+                    ${botIcon}
                 </div>
                 <div class="max-w-[90%] sm:max-w-[80%] rounded-2xl rounded-tl-xs bg-stone-100 dark:bg-stone-800 text-stone-900 dark:text-stone-100 px-4 py-3 text-xs sm:text-sm shadow-xs leading-relaxed code-block space-y-2">
                     <div class="agent-badges space-y-1 mb-2"></div>
@@ -845,7 +1131,7 @@
 
             const startTime = Date.now();
             let totalToolsCount = 0;
-            let currentStepText = currentAgentMode === 'team' ? "ทีม Agent กำลังวิเคราะห์และวางแผนงาน..." : "Agent กำลังวิเคราะห์คำสั่ง...";
+            let currentStepText = currentAgentMode === 'agy' ? "Antigravity CLI กำลังประมวลผล..." : (currentAgentMode === 'team' ? "ทีม Agent กำลังวิเคราะห์และวางแผนงาน..." : "Agent กำลังวิเคราะห์คำสั่ง...");
             let currentToolName = "";
             let isTurnCompleted = false;
 
@@ -925,7 +1211,8 @@
                                 badge.innerHTML = `<span>${event.role}</span>: <span class="font-normal">${escapeHtml(event.message)}</span>`;
                                 agentBadges.appendChild(badge);
                             } else if (event.type === 'step_progress') {
-                                currentStepText = `ขั้นตอนที่ ${event.step}/${event.max_steps} (${event.agent_mode === 'team' ? 'ทีม Agent' : 'โหมดเดี่ยว'})`;
+                                const modeLabel = event.agent_mode === 'agy' ? '🚀 Antigravity CLI' : (event.agent_mode === 'team' ? '🤝 ทีม Agent' : '⚡ โหมดเดี่ยว');
+                                currentStepText = `ขั้นตอนที่ ${event.step}/${event.max_steps} (${modeLabel})`;
                                 renderLiveStatus();
                             } else if (event.type === 'plan_ready') {
                                 planContainer.classList.remove('hidden');
