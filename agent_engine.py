@@ -7,7 +7,7 @@ import httpx
 from typing import AsyncGenerator, Dict, Any, List
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "YOUR_GEMINI_API_KEY_HERE")
-GEMINI_MODEL = "models/gemini-3.8-flash"
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "models/gemini-3.5-flash")
 API_URL = f"https://generativelanguage.googleapis.com/v1beta/{GEMINI_MODEL}:streamGenerateContent?key={GEMINI_API_KEY}"
 
 # Tool Definitions for Gemini Function Calling
@@ -344,7 +344,7 @@ async def run_agent_turn(
 
             # Append function response to history and loop back
             current_contents.append({
-                "role": "function",
+                "role": "user",
                 "parts": tool_response_parts
             })
 
